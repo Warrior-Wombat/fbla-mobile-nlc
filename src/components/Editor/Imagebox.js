@@ -1,16 +1,17 @@
-import React, { forwardRef, useImperativeHandle, useRef } from 'react';
-import { Dimensions, StyleSheet, TextInput, View } from 'react-native';
+import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
+import { Dimensions, Image, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import TinyMCEEditor from './TinyMCE/TinyMCEEditor';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const Textbox = forwardRef((props, ref) => {
+const Imagebox = forwardRef(({ source, initialWidth, initialHeight }, ref) => {
+  const [imageDimensions, setImageDimensions] = useState({ width: initialWidth, height: initialHeight });
+
   const x = useSharedValue(50);
   const y = useSharedValue(50);
-  const boxWidth = useSharedValue(300);
-  const boxHeight = useSharedValue(400);
+  const boxWidth = useSharedValue(initialWidth);
+  const boxHeight = useSharedValue(initialHeight);
 
   const previewX = useSharedValue(x.value);
   const previewY = useSharedValue(y.value);
@@ -18,57 +19,44 @@ const Textbox = forwardRef((props, ref) => {
   const previewHeight = useSharedValue(boxHeight.value);
   const showPreview = useSharedValue(false);
 
-  const editorRef = useRef(null);
-  const hiddenInputRef = useRef(null);
-
   useImperativeHandle(ref, () => ({
-    executeCommand: (command, value) => {
-      if (editorRef.current) {
-        editorRef.current.executeCommand(command, value);
-      }
+    setPosition: (newX, newY) => {
+      x.value = newX;
+      y.value = newY;
     },
-    blurEditor: () => {
-      if (editorRef.current) {
-        editorRef.current.blurEditor();
-      }
-    },
-    focusEditor: () => {
-      if (editorRef.current) {
-        console.log(editorRef.current);
-        console.log(editorRef.current.focusEditor);
-        try {
-          console.log("calling focus now...");
-          editorRef.current.focusEditor();
-          console.log("focus called!");
-        } catch (e) {
-          console.error(e);
-        }
-      }
-    },
-    refocusEditor: () => {
-      if (editorRef.current) {
-        editorRef.current.refocusEditor();
-      }
-    },
-    simulateClick: () => {
-      if (editorRef.current) {
-        editorRef.current.simulateClick();
-      }
-    },
+    setSize: (newWidth, newHeight) => {
+      boxWidth.value = newWidth;
+      boxHeight.value = newHeight;
+    }
   }));
 
-  const blurEditor = () => {
-    if (editorRef.current) {
-      editorRef.current.blurEditor();
-    }
-  };
+  useEffect(() => {
+    Image.getSize(source.uri, (width, height) => {
+      const aspectRatio = width / height;
+      let adjustedWidth = width;
+      let adjustedHeight = height;
+
+      if (width > SCREEN_WIDTH || height > SCREEN_HEIGHT) {
+        if (aspectRatio > 1) {
+          adjustedWidth = SCREEN_WIDTH * 0.8;
+          adjustedHeight = adjustedWidth / aspectRatio;
+        } else {
+          adjustedHeight = SCREEN_HEIGHT * 0.5;
+          adjustedWidth = adjustedHeight * aspectRatio;
+        }
+      }
+
+      setImageDimensions({ width: adjustedWidth, height: adjustedHeight });
+      boxWidth.value = adjustedWidth;
+      boxHeight.value = adjustedHeight;
+    });
+  }, [source]);
 
   const moveGesture = Gesture.Pan()
     .onStart(() => {
       previewX.value = x.value;
       previewY.value = y.value;
       showPreview.value = true;
-      runOnJS(blurEditor)();
     })
     .onUpdate((event) => {
       previewX.value = x.value + event.translationX;
@@ -80,13 +68,12 @@ const Textbox = forwardRef((props, ref) => {
       showPreview.value = false;
     });
 
-  const createResizeGesture = (dx, dy, axis) => {
+  const createResizeGesture = (dx, dy) => {
     return Gesture.Pan()
       .onStart(() => {
         previewWidth.value = boxWidth.value;
         previewHeight.value = boxHeight.value;
         showPreview.value = true;
-        runOnJS(blurEditor)();
       })
       .onUpdate((event) => {
         if (dx !== 0) {
@@ -94,11 +81,6 @@ const Textbox = forwardRef((props, ref) => {
         }
         if (dy !== 0) {
           previewHeight.value = boxHeight.value + event.translationY * dy;
-        }
-        if (axis === 'horizontal') {
-          previewX.value = x.value;
-        } else if (axis === 'vertical') {
-          previewY.value = y.value;
         }
       })
       .onEnd(() => {
@@ -131,36 +113,38 @@ const Textbox = forwardRef((props, ref) => {
   return (
     <View style={styles.container}>
       <GestureDetector gesture={moveGesture}>
-        <Animated.View style={[styles.textbox, animatedStyle]}>
-          <TinyMCEEditor ref={editorRef} apiKey={props.apiKey} />
-          <GestureDetector gesture={createResizeGesture(1, 0, 'horizontal')}>
+        <Animated.View style={[styles.imageContainer, animatedStyle]}>
+          <Image source={source} style={styles.image} resizeMode="contain" />
+          <GestureDetector gesture={createResizeGesture(1, 0)}>
             <Animated.View style={[styles.resizeHandle, styles.right]} />
           </GestureDetector>
-          <GestureDetector gesture={createResizeGesture(0, 1, 'vertical')}>
+          <GestureDetector gesture={createResizeGesture(0, 1)}>
             <Animated.View style={[styles.resizeHandle, styles.bottom]} />
           </GestureDetector>
-          <GestureDetector gesture={createResizeGesture(1, 1, null)}>
+          <GestureDetector gesture={createResizeGesture(1, 1)}>
             <Animated.View style={[styles.resizeHandle, styles.corner]} />
           </GestureDetector>
-          <GestureDetector gesture={createResizeGesture(-1, 0, 'horizontal')}>
+          <GestureDetector gesture={createResizeGesture(-1, 0)}>
             <Animated.View style={[styles.resizeHandle, styles.left]} />
           </GestureDetector>
-          <GestureDetector gesture={createResizeGesture(0, -1, 'vertical')}>
+          <GestureDetector gesture={createResizeGesture(0, -1)}>
             <Animated.View style={[styles.resizeHandle, styles.top]} />
           </GestureDetector>
-          <GestureDetector gesture={createResizeGesture(-1, -1, null)}>
+          <GestureDetector gesture={createResizeGesture(-1, -1)}>
             <Animated.View style={[styles.resizeHandle, styles.topLeft]} />
           </GestureDetector>
-          <GestureDetector gesture={createResizeGesture(1, -1, null)}>
+          <GestureDetector gesture={createResizeGesture(1, -1)}>
             <Animated.View style={[styles.resizeHandle, styles.topRight]} />
           </GestureDetector>
-          <GestureDetector gesture={createResizeGesture(-1, 1, null)}>
+          <GestureDetector gesture={createResizeGesture(-1, 1)}>
             <Animated.View style={[styles.resizeHandle, styles.bottomLeft]} />
+          </GestureDetector>
+          <GestureDetector gesture={createResizeGesture(1, 1)}>
+            <Animated.View style={[styles.resizeHandle, styles.bottomRight]} />
           </GestureDetector>
         </Animated.View>
       </GestureDetector>
       <Animated.View style={[styles.previewBox, previewStyle]} pointerEvents="none" />
-      <TextInput ref={hiddenInputRef} style={styles.hiddenInput} />
     </View>
   );
 });
@@ -171,11 +155,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  textbox: {
-    backgroundColor: 'white',
+  imageContainer: {
+    position: 'absolute',
     borderColor: 'blue',
     borderWidth: 1,
-    position: 'absolute',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
   },
   previewBox: {
     position: 'absolute',
@@ -223,6 +210,10 @@ const styles = StyleSheet.create({
     left: -5,
     bottom: -5,
   },
+  bottomRight: {
+    right: -5,
+    bottom: -5,
+  },
 });
 
-export default Textbox;
+export default Imagebox;

@@ -25,7 +25,7 @@ const TinyMCEEditor = forwardRef(({ apiKey, width, height }, ref) => {
       if (webViewRef.current) {
         const script = `
           if (window.myEditor) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ message: 'Blurring editor' }));
+            // window.ReactNativeWebView.postMessage(JSON.stringify({ message: 'Blurring editor' }));
             window.myEditor.blur();
           } else {
             window.ReactNativeWebView.postMessage(JSON.stringify({ message: 'Editor not initialized' }));
@@ -38,7 +38,7 @@ const TinyMCEEditor = forwardRef(({ apiKey, width, height }, ref) => {
         setTimeout(() => {
           const script = `
             if (window.myEditor) {
-              window.ReactNativeWebView.postMessage(JSON.stringify({ message: 'Focusing editor' }));
+              // window.ReactNativeWebView.postMessage(JSON.stringify({ message: 'Focusing editor' }));
               window.myEditor.focus();
             } else {
               window.ReactNativeWebView.postMessage(JSON.stringify({ message: 'Editor focus function not available' }));
@@ -97,16 +97,17 @@ const TinyMCEEditor = forwardRef(({ apiKey, width, height }, ref) => {
           document.addEventListener('DOMContentLoaded', function() {
             tinymce.init({
               selector: '#editableText',
-              plugins: 'print preview paste importcss searchreplace autolink autosave save directionality code visualblocks visualchars fullscreen image link media template codesample table charmap hr pagebreak nonbreaking anchor toc insertdatetime advlist lists wordcount imagetools textpattern noneditable help charmap quickbars emoticons',
-              toolbar: 'undo redo | fontselect fontsizeselect formatselect | alignleft aligncenter alignright alignjustify | outdent indent | numlist bullist checklist | forecolor backcolor casechange permanentpen formatpainter removeformat | pagebreak | charmap emoticons | fullscreen  preview save print | insertfile image media template link anchor codesample',
+              plugins: 'print preview paste importcss searchreplace autolink autosave save directionality code visualblocks visualchars fullscreen image link media template codesample table charmap hr pagebreak nonbreaking anchor toc insertdatetime advlist lists wordcount imagetools textpattern noneditable help charmap quickbars emoticons autoresize',
+              toolbar: 'undo redo | fontselect fontsizeselect formatselect',
               toolbar_mode: 'scrolling',
               toolbar_sticky: true,
               content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }',
-              width: '100%',
-              height: '100%',
-              resize: 'both',
+              autoresize_min_height: 300,
+              autoresize_max_height: 800,
+              autoresize_bottom_margin: 50,
               setup: function (editor) {
                 window.myEditor = editor;
+
                 window.focusTinyMCE = function() {
                   editor.focus();
                 };
@@ -116,6 +117,19 @@ const TinyMCEEditor = forwardRef(({ apiKey, width, height }, ref) => {
                 if (typeof window.ReactNativeWebView !== 'undefined') {
                   window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'editorReady' }));
                 }
+
+                var observer = new MutationObserver(function(mutations) {
+                  mutations.forEach(function(mutation) {
+                    if (mutation.addedNodes.length) {
+                      mutation.addedNodes.forEach(function(node) {
+                        if (node.classList && node.classList.contains('tox-notification')) {
+                          node.style.display = 'none';
+                        }
+                      });
+                    }
+                  });
+                });
+                observer.observe(document.body, { childList: true, subtree: true });
               }
             });
 
