@@ -97,7 +97,6 @@ const BottomToolbar = ({ executeCommand, editorRef }) => {
           <MaterialIcon name="format-color-fill" size={20} color={active.backcolor ? '#000' : '#333'} />
         </TouchableOpacity>
 
-        {/* Text Alignment Button */}
         <TouchableOpacity
           style={styles.button}
           onPress={() => setAlignmentVisible(!alignmentVisible)}
@@ -121,7 +120,6 @@ const BottomToolbar = ({ executeCommand, editorRef }) => {
           </View>
         )}
 
-        {/* List Style Button */}
         <TouchableOpacity
           style={styles.button}
           onPress={() => setListStyleVisible(!listStyleVisible)}
@@ -154,19 +152,20 @@ const BottomToolbar = ({ executeCommand, editorRef }) => {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
-  toolbarContainer: {
     position: 'absolute',
+    bottom: 0,
     left: 0,
     right: 0,
-    bottom: 0,
+    zIndex: 1000,
     backgroundColor: '#f1f1f1',
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    padding: 10,
     borderTopWidth: 1,
     borderColor: '#ccc',
+  },
+  toolbarContainer: {
+    height: 60,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
   },
   colorPickerContainer: {
     position: 'absolute',
@@ -180,7 +179,7 @@ const styles = StyleSheet.create({
   },
   accordion: {
     position: 'absolute',
-    bottom: 50,
+    bottom: 60,
     left: 0,
     right: 0,
     backgroundColor: '#fff',
@@ -196,12 +195,6 @@ const styles = StyleSheet.create({
   },
   activeButton: {
     backgroundColor: 'rgba(0, 0, 255, 0.1)',
-  },
-  hiddenInput: {
-    height: 0,
-    width: 0,
-    position: 'absolute',
-    top: -1000,
   },
 });
 

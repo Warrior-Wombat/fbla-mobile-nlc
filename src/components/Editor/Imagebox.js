@@ -13,12 +13,6 @@ const Imagebox = forwardRef(({ source, initialWidth, initialHeight }, ref) => {
   const boxWidth = useSharedValue(initialWidth);
   const boxHeight = useSharedValue(initialHeight);
 
-  const previewX = useSharedValue(x.value);
-  const previewY = useSharedValue(y.value);
-  const previewWidth = useSharedValue(boxWidth.value);
-  const previewHeight = useSharedValue(boxHeight.value);
-  const showPreview = useSharedValue(false);
-
   useImperativeHandle(ref, () => ({
     setPosition: (newX, newY) => {
       x.value = newX;
@@ -114,7 +108,7 @@ const Imagebox = forwardRef(({ source, initialWidth, initialHeight }, ref) => {
     <View style={styles.container}>
       <GestureDetector gesture={moveGesture}>
         <Animated.View style={[styles.imageContainer, animatedStyle]}>
-          <Image source={source} style={styles.image} resizeMode="contain" />
+          <Image source={source} style={styles.image} resizeMode="stretch" />
           <GestureDetector gesture={createResizeGesture(1, 0)}>
             <Animated.View style={[styles.resizeHandle, styles.right]} />
           </GestureDetector>

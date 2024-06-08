@@ -2,7 +2,7 @@ import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } f
 import { Keyboard, StyleSheet, TextInput, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
-const TinyMCEEditor = forwardRef(({ apiKey, width, height }, ref) => {
+const TinyMCEEditor = forwardRef(({ apiKey, width, height, onFocus, onBlur }, ref) => {
   const webViewRef = useRef(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [webViewHeight, setWebViewHeight] = useState('100%');
@@ -25,7 +25,6 @@ const TinyMCEEditor = forwardRef(({ apiKey, width, height }, ref) => {
       if (webViewRef.current) {
         const script = `
           if (window.myEditor) {
-            // window.ReactNativeWebView.postMessage(JSON.stringify({ message: 'Blurring editor' }));
             window.myEditor.blur();
           } else {
             window.ReactNativeWebView.postMessage(JSON.stringify({ message: 'Editor not initialized' }));
@@ -38,7 +37,6 @@ const TinyMCEEditor = forwardRef(({ apiKey, width, height }, ref) => {
         setTimeout(() => {
           const script = `
             if (window.myEditor) {
-              // window.ReactNativeWebView.postMessage(JSON.stringify({ message: 'Focusing editor' }));
               window.myEditor.focus();
             } else {
               window.ReactNativeWebView.postMessage(JSON.stringify({ message: 'Editor focus function not available' }));
@@ -108,12 +106,14 @@ const TinyMCEEditor = forwardRef(({ apiKey, width, height }, ref) => {
               setup: function (editor) {
                 window.myEditor = editor;
 
-                window.focusTinyMCE = function() {
-                  editor.focus();
-                };
-                window.blurTinyMCE = function() {
-                  editor.blur();
-                };
+                editor.on('focus', function() {
+                  window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'focus' }));
+                });
+
+                editor.on('blur', function() {
+                  window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'blur' }));
+                });
+
                 if (typeof window.ReactNativeWebView !== 'undefined') {
                   window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'editorReady' }));
                 }
@@ -171,9 +171,10 @@ const TinyMCEEditor = forwardRef(({ apiKey, width, height }, ref) => {
         style={[styles.webview, { height: webViewHeight }]}
         onMessage={(event) => {
           const data = JSON.parse(event.nativeEvent.data);
-          if (data.type === 'editorReady') {
-            const initialScript = `if (window.myEditor) { window.ReactNativeWebView.postMessage(JSON.stringify({ message: 'Blurring editor on load' })); window.myEditor.blur(); }`;
-            webViewRef.current.injectJavaScript(initialScript);
+          if (data.type === 'focus') {
+            onFocus();
+          } else if (data.type === 'blur') {
+            onBlur();
           } else {
             console.log(data.message);
           }

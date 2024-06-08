@@ -1,4 +1,4 @@
-import React, { forwardRef, useImperativeHandle, useRef } from 'react';
+import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { Dimensions, StyleSheet, TextInput, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -20,6 +20,7 @@ const Textbox = forwardRef((props, ref) => {
 
   const editorRef = useRef(null);
   const hiddenInputRef = useRef(null);
+  const [contentHeight, setContentHeight] = useState(boxHeight.value);
 
   useImperativeHandle(ref, () => ({
     executeCommand: (command, value) => {
@@ -34,15 +35,7 @@ const Textbox = forwardRef((props, ref) => {
     },
     focusEditor: () => {
       if (editorRef.current) {
-        console.log(editorRef.current);
-        console.log(editorRef.current.focusEditor);
-        try {
-          console.log("calling focus now...");
-          editorRef.current.focusEditor();
-          console.log("focus called!");
-        } catch (e) {
-          console.error(e);
-        }
+        editorRef.current.focusEditor();
       }
     },
     refocusEditor: () => {
@@ -61,6 +54,19 @@ const Textbox = forwardRef((props, ref) => {
     if (editorRef.current) {
       editorRef.current.blurEditor();
     }
+    props.onBlur(); // Call onBlur prop when the editor loses focus
+  };
+
+  const focusEditor = () => {
+    if (editorRef.current) {
+      editorRef.current.focusEditor();
+    }
+    props.onFocus(); // Call onFocus prop when the editor gains focus
+  };
+
+  const handleContentChange = (height) => {
+    setContentHeight(height);
+    boxHeight.value = withTiming(height);
   };
 
   const moveGesture = Gesture.Pan()
@@ -132,7 +138,13 @@ const Textbox = forwardRef((props, ref) => {
     <View style={styles.container}>
       <GestureDetector gesture={moveGesture}>
         <Animated.View style={[styles.textbox, animatedStyle]}>
-          <TinyMCEEditor ref={editorRef} apiKey={props.apiKey} />
+          <TinyMCEEditor 
+            ref={editorRef} 
+            apiKey={props.apiKey} 
+            onFocus={focusEditor} 
+            onBlur={blurEditor} 
+            onContentChange={handleContentChange} 
+          />
           <GestureDetector gesture={createResizeGesture(1, 0, 'horizontal')}>
             <Animated.View style={[styles.resizeHandle, styles.right]} />
           </GestureDetector>
@@ -222,6 +234,16 @@ const styles = StyleSheet.create({
   bottomLeft: {
     left: -5,
     bottom: -5,
+  },
+  bottomRight: {
+    right: -5,
+    bottom: -5,
+  },
+  hiddenInput: {
+    height: 0,
+    width: 0,
+    position: 'absolute',
+    top: -1000,
   },
 });
 
