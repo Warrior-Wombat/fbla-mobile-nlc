@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 
-const WorkspaceToolbar = ({ addTextbox, addImage }) => {
+const WorkspaceToolbar = ({ addTextbox, addImage, saveContent }) => {
   return (
     <View style={styles.toolbarContainer}>
       <TouchableOpacity style={styles.button} onPress={addTextbox}>
@@ -10,6 +10,9 @@ const WorkspaceToolbar = ({ addTextbox, addImage }) => {
       </TouchableOpacity>
       <TouchableOpacity style={styles.button} onPress={addImage}>
         <MaterialIcons name="add-photo-alternate" size={24} color="black" />
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.button} onPress={saveContent}>
+        <MaterialIcons name="save" size={24} color="black" />
       </TouchableOpacity>
     </View>
   );

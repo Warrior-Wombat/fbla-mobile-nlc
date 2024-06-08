@@ -1,17 +1,23 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle } from 'react';
 import { Dimensions, Image, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const Imagebox = forwardRef(({ source, initialWidth, initialHeight }, ref) => {
-  const [imageDimensions, setImageDimensions] = useState({ width: initialWidth, height: initialHeight });
+const Imagebox = forwardRef((props, ref) => {
+  const { x: initialX, y: initialY, width: initialWidth, height: initialHeight, source } = props;
 
-  const x = useSharedValue(50);
-  const y = useSharedValue(50);
-  const boxWidth = useSharedValue(initialWidth);
-  const boxHeight = useSharedValue(initialHeight);
+  const x = useSharedValue(initialX || 50);
+  const y = useSharedValue(initialY || 50);
+  const boxWidth = useSharedValue(initialWidth || 200);
+  const boxHeight = useSharedValue(initialHeight || 200);
+
+  const previewX = useSharedValue(x.value);
+  const previewY = useSharedValue(y.value);
+  const previewWidth = useSharedValue(boxWidth.value);
+  const previewHeight = useSharedValue(boxHeight.value);
+  const showPreview = useSharedValue(false);
 
   useImperativeHandle(ref, () => ({
     setPosition: (newX, newY) => {

@@ -1,5 +1,5 @@
-import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
-import { Dimensions, StyleSheet, TextInput, View } from 'react-native';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { Dimensions, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import TinyMCEEditor from './TinyMCE/TinyMCEEditor';
@@ -19,54 +19,41 @@ const Textbox = forwardRef((props, ref) => {
   const showPreview = useSharedValue(false);
 
   const editorRef = useRef(null);
-  const hiddenInputRef = useRef(null);
-  const [contentHeight, setContentHeight] = useState(boxHeight.value);
 
   useImperativeHandle(ref, () => ({
     executeCommand: (command, value) => {
       if (editorRef.current) {
+        console.log(`Executing command ${command} with value ${value} on editor with ID: ${props.editorId}`);
         editorRef.current.executeCommand(command, value);
       }
     },
-    blurEditor: () => {
-      if (editorRef.current) {
-        editorRef.current.blurEditor();
-      }
+    getContent: () => {
+      return editorRef.current.getContent();
     },
-    focusEditor: () => {
-      if (editorRef.current) {
-        editorRef.current.focusEditor();
-      }
-    },
-    refocusEditor: () => {
-      if (editorRef.current) {
-        editorRef.current.refocusEditor();
-      }
-    },
-    simulateClick: () => {
-      if (editorRef.current) {
-        editorRef.current.simulateClick();
-      }
-    },
+    getData: () => {
+      return {
+        x: x.value,
+        y: y.value,
+        boxWidth: boxWidth.value,
+        boxHeight: boxHeight.value,
+      };
+    }
   }));
 
-  const blurEditor = () => {
-    if (editorRef.current) {
-      editorRef.current.blurEditor();
+  const handleMove = () => {
+    if (props.onMove) {
+      props.onMove();
     }
-    props.onBlur(); // Call onBlur prop when the editor loses focus
   };
 
-  const focusEditor = () => {
-    if (editorRef.current) {
-      editorRef.current.focusEditor();
+  const handleEditorFocus = () => {
+    if (props.setActiveEditor) {
+      props.setActiveEditor(editorRef);
     }
-    props.onFocus(); // Call onFocus prop when the editor gains focus
   };
 
-  const handleContentChange = (height) => {
-    setContentHeight(height);
-    boxHeight.value = withTiming(height);
+  const handleResize = (height) => {
+    boxHeight.value = height;
   };
 
   const moveGesture = Gesture.Pan()
@@ -74,16 +61,18 @@ const Textbox = forwardRef((props, ref) => {
       previewX.value = x.value;
       previewY.value = y.value;
       showPreview.value = true;
-      runOnJS(blurEditor)();
+      runOnJS(handleMove)();
     })
     .onUpdate((event) => {
       previewX.value = x.value + event.translationX;
       previewY.value = y.value + event.translationY;
+      runOnJS(handleMove)();
     })
     .onEnd(() => {
       x.value = previewX.value;
       y.value = previewY.value;
       showPreview.value = false;
+      runOnJS(handleMove)();
     });
 
   const createResizeGesture = (dx, dy, axis) => {
@@ -92,7 +81,6 @@ const Textbox = forwardRef((props, ref) => {
         previewWidth.value = boxWidth.value;
         previewHeight.value = boxHeight.value;
         showPreview.value = true;
-        runOnJS(blurEditor)();
       })
       .onUpdate((event) => {
         if (dx !== 0) {
@@ -134,16 +122,25 @@ const Textbox = forwardRef((props, ref) => {
     };
   });
 
+  useEffect(() => {
+    console.log('Textbox props:', props);
+    if (props.content) {
+      console.log(`Setting content for editor with ID: ${props.editorId}`);
+      editorRef.current.setContent(props.content);
+    }
+  }, [props.content]);
+
   return (
     <View style={styles.container}>
       <GestureDetector gesture={moveGesture}>
         <Animated.View style={[styles.textbox, animatedStyle]}>
           <TinyMCEEditor 
-            ref={editorRef} 
+            ref={editorRef}
             apiKey={props.apiKey} 
-            onFocus={focusEditor} 
-            onBlur={blurEditor} 
-            onContentChange={handleContentChange} 
+            editorId={props.editorId}
+            onFocus={handleEditorFocus}
+            onResize={handleResize}
+            width={boxWidth.value} // Added width prop
           />
           <GestureDetector gesture={createResizeGesture(1, 0, 'horizontal')}>
             <Animated.View style={[styles.resizeHandle, styles.right]} />
@@ -172,7 +169,6 @@ const Textbox = forwardRef((props, ref) => {
         </Animated.View>
       </GestureDetector>
       <Animated.View style={[styles.previewBox, previewStyle]} pointerEvents="none" />
-      <TextInput ref={hiddenInputRef} style={styles.hiddenInput} />
     </View>
   );
 });
@@ -238,12 +234,6 @@ const styles = StyleSheet.create({
   bottomRight: {
     right: -5,
     bottom: -5,
-  },
-  hiddenInput: {
-    height: 0,
-    width: 0,
-    position: 'absolute',
-    top: -1000,
   },
 });
 

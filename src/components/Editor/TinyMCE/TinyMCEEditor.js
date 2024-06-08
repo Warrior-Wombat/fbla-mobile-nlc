@@ -1,58 +1,104 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Keyboard, StyleSheet, TextInput, View } from 'react-native';
+import uuid from 'react-native-uuid';
 import { WebView } from 'react-native-webview';
 
-const TinyMCEEditor = forwardRef(({ apiKey, width, height, onFocus, onBlur }, ref) => {
+const TinyMCEEditor = forwardRef(({ apiKey, width, height, content, editorId, onFocus }, ref) => {
+  console.log(apiKey, editorId, onFocus);
+  console.log("ref (most important): ", ref);
+
   const webViewRef = useRef(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [webViewHeight, setWebViewHeight] = useState('100%');
   const hiddenInputRef = useRef(null);
+  const pendingPromises = useRef({});
 
   useImperativeHandle(ref, () => ({
     executeCommand: (command, value) => {
       if (webViewRef.current) {
+        console.log(`Executing command: ${command} with value: ${value} on editor:`, ref);
         const script = `
-          if (window.myEditor) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ message: 'Executing command: ${command}' }));
-            window.myEditor.execCommand('${command}', false, ${JSON.stringify(value)});
-          } else {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ message: 'Editor not initialized' }));
-          }`;
-        webViewRef.current.injectJavaScript(script);
-      }
-    },
-    blurEditor: () => {
-      if (webViewRef.current) {
-        const script = `
-          if (window.myEditor) {
-            window.myEditor.blur();
-          } else {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ message: 'Editor not initialized' }));
-          }`;
-        webViewRef.current.injectJavaScript(script);
-      }
-    },
-    focusEditor: () => {
-      if (webViewRef.current) {
-        setTimeout(() => {
-          const script = `
-            if (window.myEditor) {
-              window.myEditor.focus();
+          (function() {
+            const editor = tinymce.get('${editorId}');
+            if (editor) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                message: 'Executing command',
+                command: '${command}',
+                value: ${JSON.stringify(value)},
+                editorId: '${editorId}'
+              }));
+              editor.execCommand('${command}', false, ${JSON.stringify(value)});
             } else {
-              window.ReactNativeWebView.postMessage(JSON.stringify({ message: 'Editor focus function not available' }));
-            }`;
-          webViewRef.current.injectJavaScript(script);
-        }, 100);
+              window.ReactNativeWebView.postMessage(JSON.stringify({ message: 'Editor not initialized' }));
+            }
+          })();
+        `;
+        webViewRef.current.injectJavaScript(script);
       }
     },
     setSize: (newWidth, newHeight) => {
       if (webViewRef.current) {
         const script = `
-          if (window.myEditor) {
-            window.myEditor.getContainer().style.width = '${newWidth}px';
-            window.myEditor.getContainer().style.height = '${newHeight}px';
-            window.myEditor.execCommand('mceResize', false);
-          }`;
+          (function() {
+            const editor = tinymce.get('${editorId}');
+            if (editor) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                message: 'Setting size',
+                width: ${newWidth},
+                height: ${newHeight},
+                editorId: '${editorId}'
+              }));
+              editor.getContainer().style.width = '${newWidth}px';
+              editor.getContainer().style.height = '${newHeight}px';
+              editor.execCommand('mceResize', false);
+            } else {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ message: 'Editor not initialized' }));
+            }
+          })();
+        `;
+        webViewRef.current.injectJavaScript(script);
+      }
+    },
+    getContent: () => {
+      return new Promise((resolve, reject) => {
+        const messageId = uuid.v4();
+        pendingPromises.current[messageId] = { resolve, reject };
+        const script = `
+          (function() {
+            const editor = tinymce.get('${editorId}');
+            if (editor) {
+              const content = editor.getContent();
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'getContent',
+                editorId: '${editorId}',
+                content: JSON.stringify({ content }),
+                messageId: '${messageId}'
+              }));
+            } else {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ message: 'Editor not initialized' }));
+            }
+          })();
+        `;
+        webViewRef.current.injectJavaScript(script);
+      });
+    },
+    setContent: (content) => {
+      if (webViewRef.current) {
+        const script = `
+          (function() {
+            const editor = tinymce.get('${editorId}');
+            if (editor) {
+              editor.setContent(${JSON.stringify(content)});
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                message: 'Setting content',
+                content: ${JSON.stringify(content)},
+                editorId: '${editorId}'
+              }));
+            } else {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ message: 'Editor not initialized' }));
+            }
+          })();
+        `;
         webViewRef.current.injectJavaScript(script);
       }
     }
@@ -74,91 +120,114 @@ const TinyMCEEditor = forwardRef(({ apiKey, width, height, onFocus, onBlur }, re
     };
   }, []);
 
-  const editorHtml = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="referrer" content="origin">
-        <script src="https://cdn.tiny.cloud/1/${apiKey}/tinymce/5/tinymce.min.js" referrerpolicy="origin"></script>
-        <style>
-          body, html { padding: 0; margin: 0; height: 100%; width: 100%; }
-          textarea { width: 100%; height: 100%; min-height: 300px; }
-          .tox .tox-notification, .tox .tox-notification--warn, .tox .tox-notification--error, .tox .tox-notification__body, .tox .tox-notification__dismiss, .tox .tox-notification-bar { display: none !important; }
-          .tox .tox-toolbar__overflow { overflow-x: auto; }
-          .tox-statusbar { display: none !important; }
-        </style>
-      </head>
-      <body>
-        <textarea id="editableText">Hello, World!</textarea>
-        <script>
-          document.addEventListener('DOMContentLoaded', function() {
-            tinymce.init({
-              selector: '#editableText',
-              plugins: 'print preview paste importcss searchreplace autolink autosave save directionality code visualblocks visualchars fullscreen image link media template codesample table charmap hr pagebreak nonbreaking anchor toc insertdatetime advlist lists wordcount imagetools textpattern noneditable help charmap quickbars emoticons autoresize',
-              toolbar: 'undo redo | fontselect fontsizeselect formatselect',
-              toolbar_mode: 'scrolling',
-              toolbar_sticky: true,
-              content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }',
-              autoresize_min_height: 300,
-              autoresize_max_height: 800,
-              autoresize_bottom_margin: 50,
-              setup: function (editor) {
-                window.myEditor = editor;
-
-                editor.on('focus', function() {
-                  window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'focus' }));
-                });
-
-                editor.on('blur', function() {
-                  window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'blur' }));
-                });
-
-                if (typeof window.ReactNativeWebView !== 'undefined') {
-                  window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'editorReady' }));
-                }
-
-                var observer = new MutationObserver(function(mutations) {
-                  mutations.forEach(function(mutation) {
-                    if (mutation.addedNodes.length) {
-                      mutation.addedNodes.forEach(function(node) {
-                        if (node.classList && node.classList.contains('tox-notification')) {
-                          node.style.display = 'none';
-                        }
-                      });
-                    }
-                  });
-                });
-                observer.observe(document.body, { childList: true, subtree: true });
-              }
-            });
-
-            window.addEventListener('resize', () => {
-              const editor = window.myEditor;
-              if (editor) {
-                const width = document.documentElement.clientWidth;
-                const height = document.documentElement.clientHeight;
-                editor.getContainer().style.width = width + 'px';
-                editor.getContainer().style.height = height + 'px';
-                editor.execCommand('mceResize', false);
-              }
-            });
-          });
-        </script>      
-      </body>
-    </html>`;
-
   useEffect(() => {
     if (webViewRef.current) {
       const script = `
-        if (window.myEditor) {
-          window.myEditor.getContainer().style.width = '${width}px';
-          window.myEditor.getContainer().style.height = '${height}px';
-          window.myEditor.execCommand('mceResize', false);
-        }`;
+        tinymce.init({
+          selector: '#${editorId}',
+          height: '100%',
+          menubar: false,
+          plugins: [
+            'advlist autolink lists link image charmap print preview anchor',
+            'searchreplace visualblocks code fullscreen',
+            'insertdatetime media table paste code help wordcount'
+          ],
+          setup: function (editor) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'editorSetup', editorId: '${editorId}' }));
+            editor.on('focus', function () {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'focus', editorId: '${editorId}' }));
+            });
+            editor.on('blur', function () {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'blur', editorId: '${editorId}' }));
+            });
+          }
+        });
+        setTimeout(() => {
+          const editor = tinymce.get('${editorId}');
+          if (editor) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ message: 'Setting initial content for editor', editorId: '${editorId}' }));
+            editor.setContent(${JSON.stringify(content)});
+          }
+        }, 1000);
+      `;
       webViewRef.current.injectJavaScript(script);
     }
-  }, [width, height]);
+  }, [editorId, content, width, height]);
+
+  const handleMessage = (event) => {
+    const data = JSON.parse(event.nativeEvent.data);
+    console.log('Message received:', data);
+    if (data.type === 'getContent' && data.messageId) {
+      const { resolve, reject } = pendingPromises.current[data.messageId];
+      if (resolve) {
+        resolve(data.content);
+        delete pendingPromises.current[data.messageId];
+      }
+    } else if (data.messageId) {
+      const { reject } = pendingPromises.current[data.messageId];
+      if (reject) {
+        reject(new Error(data.message || 'Unknown error'));
+        delete pendingPromises.current[data.messageId];
+      }
+    } else if (data.type === 'focus' && data.editorId === editorId) {
+      if (onFocus) {
+        onFocus();
+      }
+    }
+  };
+
+  const editorHtml = `
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="origin">
+    <script src="https://cdn.tiny.cloud/1/${apiKey}/tinymce/5/tinymce.min.js" referrerpolicy="origin"></script>
+    <style>
+      body, html { padding: 0; margin: 0; height: 100%; width: 100%; }
+      textarea { width: 100%; height: 100%; }
+    </style>
+  </head>
+  <body>
+    <textarea id="${editorId}">Hello, World!</textarea>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        window.ReactNativeWebView.postMessage(JSON.stringify({ message: 'Initializing TinyMCE editor', editorId: '${editorId}' }));
+        tinymce.init({
+          selector: '#${editorId}',
+          menubar: false,
+          plugins: 'link image code autoresize',
+          toolbar: 'undo redo | bold italic | alignleft aligncenter alignright | code',
+          autoresize_bottom_margin: 20,
+          setup: function (editor) {
+            editor.on('init', function () {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'editorReady', editorId: '${editorId}' }));
+            });
+            editor.on('focus', function () {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'focus', editorId: '${editorId}' }));
+            });
+            editor.on('blur', function () {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'blur', editorId: '${editorId}' }));
+            });
+            var observer = new MutationObserver(function(mutations) {
+              mutations.forEach(function(mutation) {
+                if (mutation.addedNodes.length) {
+                  mutation.addedNodes.forEach(function(node) {
+                    if (node.classList && node.classList.contains('tox-notification')) {
+                      node.style.display = 'none';
+                    }
+                  });
+                }
+              });
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+          }
+        });
+      });
+    </script>
+  </body>
+  </html>`;
+  
 
   return (
     <View style={styles.container}>
@@ -169,16 +238,7 @@ const TinyMCEEditor = forwardRef(({ apiKey, width, height, onFocus, onBlur }, re
         originWhitelist={['*']}
         source={{ html: editorHtml }}
         style={[styles.webview, { height: webViewHeight }]}
-        onMessage={(event) => {
-          const data = JSON.parse(event.nativeEvent.data);
-          if (data.type === 'focus') {
-            onFocus();
-          } else if (data.type === 'blur') {
-            onBlur();
-          } else {
-            console.log(data.message);
-          }
-        }}
+        onMessage={handleMessage}
       />
       <TextInput ref={hiddenInputRef} style={styles.hiddenInput} />
     </View>

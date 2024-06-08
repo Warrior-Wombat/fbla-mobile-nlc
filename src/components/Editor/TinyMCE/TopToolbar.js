@@ -6,13 +6,13 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 const TopToolbar = ({ executeCommand, isVisible }) => {
   const [fontFamilyVisible, setFontFamilyVisible] = useState(false);
   const [fontSizeVisible, setFontSizeVisible] = useState(false);
-  const slideAnim = useSharedValue(-120);
+  const slideAnim = useSharedValue(-180); // Start 60 pixels higher
 
   const fontFamilies = ['Arial', 'Comic Sans MS', 'Courier New', 'Georgia', 'Times New Roman', 'Verdana'];
-  const fontSizes = ['10px', '12px', '14px', '16px', '18px', '24px', '36px'];
+  const fontSizes = [10, 12, 14, 16, 18, 24, 36]; // Use numbers
 
   useEffect(() => {
-    slideAnim.value = withTiming(isVisible ? -120 : 60, {
+    slideAnim.value = withTiming(isVisible ? -60 : 60, {
       duration: 300,
       easing: Easing.out(Easing.ease),
     });
@@ -30,7 +30,7 @@ const TopToolbar = ({ executeCommand, isVisible }) => {
   }, [executeCommand]);
 
   const handleFontSizePress = useCallback((fontSize) => {
-    executeCommand('fontSize', fontSize);
+    executeCommand('FontSize', `${fontSize}pt`);
     setFontSizeVisible(false);
   }, [executeCommand]);
 
@@ -61,7 +61,7 @@ const TopToolbar = ({ executeCommand, isVisible }) => {
             {fontFamilies.map((fontFamily) => (
               <TouchableOpacity
                 key={fontFamily}
-                style={styles.button}
+                style={styles.accordionItem}
                 onPress={() => handleFontFamilyPress(fontFamily)}
               >
                 <Text style={{ fontFamily }}>{fontFamily}</Text>
@@ -81,10 +81,10 @@ const TopToolbar = ({ executeCommand, isVisible }) => {
             {fontSizes.map((fontSize) => (
               <TouchableOpacity
                 key={fontSize}
-                style={styles.button}
+                style={styles.accordionItem}
                 onPress={() => handleFontSizePress(fontSize)}
               >
-                <Text style={{ fontSize }}>{fontSize}</Text>
+                <Text>{fontSize}pt</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -120,9 +120,14 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: '#ccc',
     zIndex: 1000,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: 'column', // Arrange items vertically
+    alignItems: 'center', // Center items
     padding: 10,
+  },
+  accordionItem: {
+    paddingVertical: 5, // Add vertical padding for better spacing
+    width: '100%', // Ensure items take the full width
+    textAlign: 'center', // Center text
   },
   button: {
     padding: 5,
