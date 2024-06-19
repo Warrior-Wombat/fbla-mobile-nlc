@@ -1,70 +1,53 @@
-import React, { forwardRef, useEffect, useImperativeHandle } from 'react';
+import React, { forwardRef, useImperativeHandle } from 'react';
 import { Dimensions, Image, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const Imagebox = forwardRef((props, ref) => {
-  const { x: initialX, y: initialY, width: initialWidth, height: initialHeight, source } = props;
+const Imagebox = forwardRef(({ source, initialWidth, initialHeight, x, y }, ref) => {
+  const posX = useSharedValue(x);
+  const posY = useSharedValue(y);
+  const boxWidth = useSharedValue(initialWidth);
+  const boxHeight = useSharedValue(initialHeight);
 
-  const x = useSharedValue(initialX || 50);
-  const y = useSharedValue(initialY || 50);
-  const boxWidth = useSharedValue(initialWidth || 200);
-  const boxHeight = useSharedValue(initialHeight || 200);
-
-  const previewX = useSharedValue(x.value);
-  const previewY = useSharedValue(y.value);
+  const previewX = useSharedValue(posX.value);
+  const previewY = useSharedValue(posY.value);
   const previewWidth = useSharedValue(boxWidth.value);
   const previewHeight = useSharedValue(boxHeight.value);
   const showPreview = useSharedValue(false);
 
   useImperativeHandle(ref, () => ({
     setPosition: (newX, newY) => {
-      x.value = newX;
-      y.value = newY;
+      posX.value = newX;
+      posY.value = newY;
     },
     setSize: (newWidth, newHeight) => {
       boxWidth.value = newWidth;
       boxHeight.value = newHeight;
-    }
+    },
+    getData: () => ({
+      x: posX.value,
+      y: posY.value,
+      boxWidth: boxWidth.value,
+      boxHeight: boxHeight.value,
+      uri: source.uri
+    })
   }));
-
-  useEffect(() => {
-    Image.getSize(source.uri, (width, height) => {
-      const aspectRatio = width / height;
-      let adjustedWidth = width;
-      let adjustedHeight = height;
-
-      if (width > SCREEN_WIDTH || height > SCREEN_HEIGHT) {
-        if (aspectRatio > 1) {
-          adjustedWidth = SCREEN_WIDTH * 0.8;
-          adjustedHeight = adjustedWidth / aspectRatio;
-        } else {
-          adjustedHeight = SCREEN_HEIGHT * 0.5;
-          adjustedWidth = adjustedHeight * aspectRatio;
-        }
-      }
-
-      setImageDimensions({ width: adjustedWidth, height: adjustedHeight });
-      boxWidth.value = adjustedWidth;
-      boxHeight.value = adjustedHeight;
-    });
-  }, [source]);
 
   const moveGesture = Gesture.Pan()
     .onStart(() => {
-      previewX.value = x.value;
-      previewY.value = y.value;
+      previewX.value = posX.value;
+      previewY.value = posY.value;
       showPreview.value = true;
     })
     .onUpdate((event) => {
-      previewX.value = x.value + event.translationX;
-      previewY.value = y.value + event.translationY;
+      previewX.value = posX.value + event.translationX;
+      previewY.value = posY.value + event.translationY;
     })
     .onEnd(() => {
-      x.value = previewX.value;
-      y.value = previewY.value;
+      posX.value = previewX.value;
+      posY.value = previewY.value;
       showPreview.value = false;
     });
 
@@ -92,7 +75,7 @@ const Imagebox = forwardRef((props, ref) => {
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
-      transform: [{ translateX: withTiming(x.value) }, { translateY: withTiming(y.value) }],
+      transform: [{ translateX: withTiming(posX.value) }, { translateY: withTiming(posY.value) }],
       width: withTiming(boxWidth.value),
       height: withTiming(boxHeight.value),
     };

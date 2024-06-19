@@ -3,10 +3,7 @@ import { Keyboard, StyleSheet, TextInput, View } from 'react-native';
 import uuid from 'react-native-uuid';
 import { WebView } from 'react-native-webview';
 
-const TinyMCEEditor = forwardRef(({ apiKey, width, height, content, editorId, onFocus }, ref) => {
-  console.log(apiKey, editorId, onFocus);
-  console.log("ref (most important): ", ref);
-
+const TinyMCEEditor = forwardRef(({ apiKey, width, height, content, editorId, onFocus, onReady }, ref) => {
   const webViewRef = useRef(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [webViewHeight, setWebViewHeight] = useState('100%');
@@ -16,7 +13,6 @@ const TinyMCEEditor = forwardRef(({ apiKey, width, height, content, editorId, on
   useImperativeHandle(ref, () => ({
     executeCommand: (command, value) => {
       if (webViewRef.current) {
-        console.log(`Executing command: ${command} with value: ${value} on editor:`, ref);
         const script = `
           (function() {
             const editor = tinymce.get('${editorId}');
@@ -84,14 +80,15 @@ const TinyMCEEditor = forwardRef(({ apiKey, width, height, content, editorId, on
     },
     setContent: (content) => {
       if (webViewRef.current) {
+        const parsedContent = JSON.parse(content).content;
         const script = `
           (function() {
             const editor = tinymce.get('${editorId}');
             if (editor) {
-              editor.setContent(${JSON.stringify(content)});
+              editor.setContent(${JSON.stringify(parsedContent)});
               window.ReactNativeWebView.postMessage(JSON.stringify({
                 message: 'Setting content',
-                content: ${JSON.stringify(content)},
+                content: ${JSON.stringify(parsedContent)},
                 editorId: '${editorId}'
               }));
             } else {
@@ -101,7 +98,7 @@ const TinyMCEEditor = forwardRef(({ apiKey, width, height, content, editorId, on
         `;
         webViewRef.current.injectJavaScript(script);
       }
-    }
+    }    
   }));
 
   useEffect(() => {
@@ -147,6 +144,7 @@ const TinyMCEEditor = forwardRef(({ apiKey, width, height, content, editorId, on
           if (editor) {
             window.ReactNativeWebView.postMessage(JSON.stringify({ message: 'Setting initial content for editor', editorId: '${editorId}' }));
             editor.setContent(${JSON.stringify(content)});
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'editorReady', editorId: '${editorId}' }));
           }
         }, 1000);
       `;
@@ -173,6 +171,10 @@ const TinyMCEEditor = forwardRef(({ apiKey, width, height, content, editorId, on
       if (onFocus) {
         onFocus();
       }
+    } else if (data.type === 'editorReady' && data.editorId === editorId) {
+      if (onReady) {
+        onReady();
+      }
     }
   };
 
@@ -197,7 +199,7 @@ const TinyMCEEditor = forwardRef(({ apiKey, width, height, content, editorId, on
           selector: '#${editorId}',
           menubar: false,
           plugins: 'link image code autoresize',
-          toolbar: 'undo redo | bold italic | alignleft aligncenter alignright | code',
+          toolbar: false,
           autoresize_bottom_margin: 20,
           setup: function (editor) {
             editor.on('init', function () {
@@ -227,7 +229,6 @@ const TinyMCEEditor = forwardRef(({ apiKey, width, height, content, editorId, on
     </script>
   </body>
   </html>`;
-  
 
   return (
     <View style={styles.container}>

@@ -1,17 +1,18 @@
 import { TINYMCE_API_KEY } from '@env';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useEffect, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import { Animated, Easing, Keyboard, Platform, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import uuid from 'react-native-uuid';
-import supabase from '../../utils/supabase';
 import Imagebox from './Imagebox';
 import Textbox from './Textbox';
 import BottomToolbar from './TinyMCE/BottomToolbar';
 import TopToolbar from './TinyMCE/TopToolbar';
 import WorkspaceToolbar from './WorkspaceToolbar';
 
-const FreeformWorkspace = () => {
+const FreeformWorkspace = forwardRef(({ route }, ref) => {
+  const { pageId, mode, pageData } = route.params;
+  console.log('ROUTE PARAMS INSIDE FREEFORMWORKSPACE: ', route.params);
   const [components, setComponents] = useState([]);
   const [activeEditor, setActiveEditor] = useState(null);
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
@@ -30,11 +31,16 @@ const FreeformWorkspace = () => {
       setActiveEditor(null);
     });
 
+    console.log("Page Data:", pageData);
+    if (mode === 'edit' || mode === 'view') {
+      loadPageData(pageData);
+    }
+
     return () => {
       showSubscription.remove();
       hideSubscription.remove();
     };
-  }, []);
+  }, [pageId, mode, pageData]);
 
   useEffect(() => {
     Animated.timing(slideAnim, {
@@ -60,7 +66,7 @@ const FreeformWorkspace = () => {
     const id = uuid.v4();
     const editorId = `${id}`;
     console.log(`Creating textbox with editorId: ${editorId}`);
-    setComponents([...components, { id, type: 'textbox', editorId, ref: React.createRef() }]);
+    setComponents([...components, { id, type: 'textbox', editorId, ref: React.createRef(), x: 50, y: 50, width: 300, height: 400, content: '' }]);
   };
 
   const addImage = async () => {
@@ -73,7 +79,7 @@ const FreeformWorkspace = () => {
 
     if (!result.cancelled) {
       const id = uuid.v4();
-      setComponents([...components, { id, type: 'image', uri: result.assets[0].uri, ref: React.createRef() }]);
+      setComponents([...components, { id, type: 'image', uri: result.uri, ref: React.createRef(), x: 50, y: 50, width: 300, height: 300 }]);
     }
   };
 
@@ -88,130 +94,89 @@ const FreeformWorkspace = () => {
     setActiveEditor(ref);
   };
 
-  const saveContent = async () => {
+  const collectPageData = async () => {
     try {
-        const textboxes = [];
-        const images = [];
-
-        await Promise.all(
-            components.map(async (component) => {
-                if (component.type === 'textbox') {
-                    const content = await component.ref.current.getContent();
-                    const { x, y, boxWidth, boxHeight } = component.ref.current.getData();
-                    console.log(`Saving textbox with id: ${component.id}, content: ${content}`);
-                    textboxes.push({
-                        id: component.editorId,
-                        content: JSON.parse(content),
-                        x,
-                        y,
-                        width: boxWidth,
-                        height: boxHeight,
-                    });
-                } else if (component.type === 'image') {
-                    const { x, y, boxWidth, boxHeight, uri } = component.ref.current.getData();
-                    const fileExt = uri.split('.').pop();
-                    const fileName = `${uuid.v4()}.${fileExt}`;
-                    const formData = new FormData();
-                    formData.append('file', {
-                        uri,
-                        name: fileName,
-                        type: `image/${fileExt}`,
-                    });
-
-                    const { data, error } = await supabase.storage.from('images').upload(fileName, formData);
-
-                    if (error) {
-                        console.error('Error uploading image: ', error);
-                        return;
-                    }
-
-                    const { publicURL } = supabase.storage.from('images').getPublicUrl(fileName);
-                    images.push({
-                        id: component.id,
-                        x,
-                        y,
-                        width: boxWidth,
-                        height: boxHeight,
-                        url: publicURL,
-                    });
-                }
-            })
-        );
-
-        const workspaceData = {
-            textboxes: textboxes.length ? textboxes : [],
-            images: images.length ? images : [],
-        };
-
-        const { data, error } = await supabase
-            .from('workspace')
-            .insert([{ id: uuid.v4(), components: workspaceData }]);
-
-        if (error) {
-            console.error('Error saving workspace: ', error);
-        } else {
-            console.log('Workspace saved successfully: ', data);
-        }
-    } catch (error) {
-        console.error('Error saving workspace: ', error);
-    }
-};
-
-
-  const loadWorkspace = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('workspace')
-        .select('components')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (error) {
-        console.error('Error loading workspace: ', error);
-        return;
-      }
-
-      const componentsData = data.components;
-
-      setComponents(
-        componentsData.map((component) => {
+      const textboxes = [];
+      const images = [];
+  
+      await Promise.all(
+        components.map(async (component) => {
           if (component.type === 'textbox') {
-            return {
-              id: component.id,
-              type: 'textbox',
-              x: component.x,
-              y: component.y,
-              width: component.width,
-              height: component.height,
-              content: JSON.stringify(component.content),
-              editorId: component.editorId,
-              ref: React.createRef(),
-            };
+            const content = await component.ref.current.getContent();
+            const { x, y, boxWidth, boxHeight } = component.ref.current.getData();
+            textboxes.push({
+              id: component.editorId,
+              content: JSON.parse(content),
+              x,
+              y,
+              width: boxWidth,
+              height: boxHeight,
+            });
           } else if (component.type === 'image') {
-            return {
+            const { x, y, boxWidth, boxHeight, uri } = component.ref.current.getData();
+            images.push({
               id: component.id,
-              type: 'image',
-              x: component.x,
-              y: component.y,
-              width: component.width,
-              height: component.height,
-              uri: component.url,
-              ref: React.createRef(),
-            };
+              x,
+              y,
+              width: boxWidth,
+              height: boxHeight,
+              uri,
+            });
           }
         })
       );
+  
+      return {
+        textboxes: textboxes.length ? textboxes : [],
+        images: images.length ? images : [],
+      };
     } catch (error) {
-      console.error('Error loading workspace: ', error);
+      console.error('Error collecting workspace data: ', error);
     }
   };
 
+  const loadPageData = (pageData) => {
+    if (pageData) {
+      console.log("Loading page data:", pageData);
+      const loadedComponents = [
+        ...pageData.textboxes.map(textbox => ({
+          ...textbox,
+          type: 'textbox',
+          ref: React.createRef(),
+          content: JSON.stringify(textbox.content),
+          editorId: textbox.id,
+        })),
+        ...pageData.images.map(image => ({
+          ...image,
+          type: 'image',
+          ref: React.createRef(),
+        })),
+      ];
+      setComponents(loadedComponents);
+
+      // Set content for each component
+      loadedComponents.forEach(component => {
+        if (component.type === 'textbox' && component.ref.current) {
+          component.ref.current.setContent(component.content);
+        }
+      });
+    } else {
+      console.log("No page data to load.");
+    }
+  };
+
+  useImperativeHandle(ref, () => ({
+    collectPageData,
+    loadPageData,
+  }));
+
   return (
     <GestureHandlerRootView style={styles.container}>
-      <Animated.View style={[styles.topToolbarContainer, { transform: [{ translateY: slideAnim }] }]}>
-        <TopToolbar executeCommand={executeCommand} editorRef={activeEditor} />
-      </Animated.View>
+      {mode !== 'view' && (
+        <Animated.View style={[styles.topToolbarContainer, { transform: [{ translateY: slideAnim }] }]}>
+          <TopToolbar executeCommand={executeCommand} editorRef={activeEditor} />
+        </Animated.View>
+      )}
       <View style={styles.workspace}>
         {components.map((component) => {
           if (component.type === 'textbox') {
@@ -222,6 +187,13 @@ const FreeformWorkspace = () => {
                 apiKey={TINYMCE_API_KEY}
                 editorId={component.editorId}
                 setActiveEditor={setActiveEditorRef}
+                editable={mode !== 'view'}
+                x={component.x}
+                y={component.y}
+                width={component.width}
+                height={component.height}
+                content={component.content}
+                mode={mode} // Pass mode prop here
               />
             );
           } else if (component.type === 'image') {
@@ -230,20 +202,27 @@ const FreeformWorkspace = () => {
                 key={component.id}
                 ref={component.ref}
                 source={{ uri: component.uri }}
+                initialWidth={component.width}
+                initialHeight={component.height}
+                x={component.x}
+                y={component.y}
+                mode={mode} // Pass mode prop here
               />
             );
           }
           return null;
         })}
       </View>
-      {isKeyboardVisible ? (
-        <BottomToolbar executeCommand={executeCommand} editorRef={activeEditor} />
-      ) : (
-        <WorkspaceToolbar addTextbox={addTextbox} addImage={addImage} saveContent={saveContent} />
+      {mode !== 'view' && (
+        isKeyboardVisible ? (
+          <BottomToolbar executeCommand={executeCommand} editorRef={activeEditor} />
+        ) : (
+          <WorkspaceToolbar addTextbox={addTextbox} addImage={addImage} />
+        )
       )}
     </GestureHandlerRootView>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -251,7 +230,6 @@ const styles = StyleSheet.create({
   },
   workspace: {
     flex: 1,
-    paddingBottom: 1000,
   },
   topToolbarContainer: {
     position: 'absolute',
@@ -259,24 +237,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 100,
-  },
-  toolbarContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 60,
-    backgroundColor: '#f1f1f1',
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderColor: '#ccc',
-    zIndex: 100,
-  },
-  button: {
-    padding: 10,
-    alignItems: 'center',
   },
 });
 

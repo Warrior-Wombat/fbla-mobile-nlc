@@ -1,0 +1,33 @@
+{
+    "title": "Untitled Portfolio",
+    "pages": [
+        {
+            "uuid": "some-uuid",
+            "title": "Page 1",
+            "images": [
+              {
+                "x": 11.386695861816406,
+                "y": -62.924217224121094,
+                "id": "46f25901-e9ea-48a5-8d71-ae161273d769",
+                "width": 345.6,
+                "height": 259.20000000000005
+              }
+            ],
+            "textboxes": [
+              {
+                "x": -38.55815410614014,
+                "y": 33.30390930175781,
+                "id": "834ad355-0a9c-4f2c-ae87-749a6de1fa13",
+                "width": 300,
+                "height": 400,
+                "content": {
+                  "content": "<p>Hello, World!&nbsp;<strong>This is a test.</strong>&nbsp;<em>i like tiny mce</em></p>"
+                }
+              }
+            ]
+        },
+        {
+            // new page stuff
+        }
+    ]
+  }

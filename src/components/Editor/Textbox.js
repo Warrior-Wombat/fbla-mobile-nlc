@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -7,10 +7,10 @@ import TinyMCEEditor from './TinyMCE/TinyMCEEditor';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const Textbox = forwardRef((props, ref) => {
-  const x = useSharedValue(50);
-  const y = useSharedValue(50);
-  const boxWidth = useSharedValue(300);
-  const boxHeight = useSharedValue(400);
+  const x = useSharedValue(props.x);
+  const y = useSharedValue(props.y);
+  const boxWidth = useSharedValue(props.width);
+  const boxHeight = useSharedValue(props.height);
 
   const previewX = useSharedValue(x.value);
   const previewY = useSharedValue(y.value);
@@ -19,11 +19,11 @@ const Textbox = forwardRef((props, ref) => {
   const showPreview = useSharedValue(false);
 
   const editorRef = useRef(null);
+  const [editorReady, setEditorReady] = useState(false);
 
   useImperativeHandle(ref, () => ({
     executeCommand: (command, value) => {
       if (editorRef.current) {
-        console.log(`Executing command ${command} with value ${value} on editor with ID: ${props.editorId}`);
         editorRef.current.executeCommand(command, value);
       }
     },
@@ -37,6 +37,12 @@ const Textbox = forwardRef((props, ref) => {
         boxWidth: boxWidth.value,
         boxHeight: boxHeight.value,
       };
+    },
+    setContent: (content) => {
+      if (editorRef.current) {
+        console.log("content setting in the imperative handle? ", content.content);
+        editorRef.current.setContent(JSON.parse(content).content);
+      }
     }
   }));
 
@@ -123,12 +129,11 @@ const Textbox = forwardRef((props, ref) => {
   });
 
   useEffect(() => {
-    console.log('Textbox props:', props);
-    if (props.content) {
-      console.log(`Setting content for editor with ID: ${props.editorId}`);
+    if (props.content && editorReady) {
+      console.log('setting props in textbox.js use effect?? ', props.content);
       editorRef.current.setContent(props.content);
     }
-  }, [props.content]);
+  }, [props.content, editorReady]);
 
   return (
     <View style={styles.container}>
@@ -140,7 +145,9 @@ const Textbox = forwardRef((props, ref) => {
             editorId={props.editorId}
             onFocus={handleEditorFocus}
             onResize={handleResize}
-            width={boxWidth.value} // Added width prop
+            width={boxWidth.value}
+            height={boxHeight.value}
+            onReady={() => setEditorReady(true)} // Add this to handle when editor is ready
           />
           <GestureDetector gesture={createResizeGesture(1, 0, 'horizontal')}>
             <Animated.View style={[styles.resizeHandle, styles.right]} />
