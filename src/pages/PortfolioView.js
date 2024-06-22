@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { htmlToText } from 'html-to-text';
 import React, { useEffect, useRef, useState } from 'react';
-import { Button, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import uuid from 'react-native-uuid';
 import PortfolioNavigator from '../navigation/PortfolioNavigator';
 import { supabase } from '../utils/supabase';
@@ -76,6 +77,43 @@ const PortfolioView = ({ route }) => {
     }
   };
 
+  const gatherText = async () => {
+    const finalText = [];
+  
+    for (let pageId in pageRefs.current) {
+      if (pageRefs.current.hasOwnProperty(pageId) && pageRefs.current[pageId]) {
+        const workspace = await pageRefs.current[pageId].collectPageData();
+        console.log('Workspace:', workspace);
+        const pageText = workspace.textboxes.map(textbox => {
+          let content = '';
+          try {
+            // Check if content is an object and has a 'content' property
+            if (typeof textbox.content === 'object' && textbox.content.content) {
+              content = textbox.content.content;
+            } else {
+              content = JSON.parse(textbox.content).content; // Adjust if your content structure is different
+            }
+          } catch (error) {
+            // If parsing fails, assume content is already plain text
+            content = textbox.content;
+          }
+  
+          const plainText = htmlToText(content, {
+            wordwrap: 130,
+            // other options you might need
+          });
+          console.log('Plain text from content:', plainText);
+          return plainText;
+        }).join(' ');
+        console.log('Collected page text:', pageText);
+        finalText.push(pageText);
+      }
+    }
+  
+    console.log('Final text:', finalText.join(' '));
+    return finalText.join(' ');
+  };
+
   const gatherAndSavePortfolio = async () => {
     const portfolioId = uuid.v4();
     const portfolioTitle = 'Untitled Portfolio';
@@ -108,8 +146,8 @@ const PortfolioView = ({ route }) => {
 
         const { data: uploadData, error: uploadError } = await supabase.storage.from('images').upload(fileName, formData);
 
-        if (uploadError && uploadError.statusCode !== 409) {
-          console.error('Error uploading image: ', uploadError);
+        if (uploadError && uploadError.statusCode != 409) {
+          console.error('Error uploading image in PortfolioView: ', uploadError);
           continue;
         }
 
@@ -150,8 +188,9 @@ const PortfolioView = ({ route }) => {
         setSelectedPageId={setSelectedPageId}
         navigatorRef={navigatorRef}
         ref={pageRefs}
+        gatherAndSavePortfolio={gatherAndSavePortfolio}
+        gatherText={gatherText}
       />
-      {mode !== 'view' && <Button title="Save" onPress={gatherAndSavePortfolio} />}
     </View>
   );
 };

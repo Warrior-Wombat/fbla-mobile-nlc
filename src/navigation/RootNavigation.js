@@ -4,7 +4,7 @@ import React from 'react';
 import { enableScreens } from 'react-native-screens';
 import Login from '../components/Login/Login';
 import Signup from '../components/Login/Signup';
-import UserOverviewScreen from '../pages/Catalogue';
+import Catalogue from '../pages/Catalogue';
 import PortfolioView from '../pages/PortfolioView';
 
 enableScreens();
@@ -26,7 +26,7 @@ export default function RootNavigation() {
         />
         <Stack.Screen 
           name="Overview" 
-          component={UserOverviewScreen} 
+          component={Catalogue} 
           options={{ headerShown: false }} 
         />
         <Stack.Screen 

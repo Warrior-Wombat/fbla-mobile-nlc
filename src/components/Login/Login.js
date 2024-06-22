@@ -1,16 +1,23 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from "@react-navigation/native";
-import { makeRedirectUri } from "expo-auth-session";
-import * as QueryParams from "expo-auth-session/build/QueryParams";
+import axios from 'axios';
+import base64 from 'base-64';
+import { makeRedirectUri, useAuthRequest } from "expo-auth-session";
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import Icon from 'react-native-vector-icons/FontAwesome';
+import Icon from 'react-native-vector-icons/FontAwesome5';
 import { supabase } from "../../utils/supabase";
 
 WebBrowser.maybeCompleteAuthSession();
-const redirectTo = makeRedirectUri();
-console.log(redirectTo);
+const redirectUri = makeRedirectUri();
+
+const discovery = {
+  authorizationEndpoint: 'https://twitter.com/i/oauth2/authorize',
+  tokenEndpoint: 'https://api.twitter.com/2/oauth2/token',
+  revocationEndpoint: 'https://api.twitter.com/2/oauth2/revoke',
+};
 
 export default function LoginComponent() {
   const [email, setEmail] = useState('');
@@ -18,12 +25,19 @@ export default function LoginComponent() {
   const navigation = useNavigation();
 
   const createSessionFromUrl = async (url) => {
-    const { params, errorCode } = QueryParams.getQueryParams(url);
-    if (errorCode) throw new Error(errorCode);
-    const { access_token, refresh_token } = params;
+    const { queryParams } = Linking.parse(url);
+    const { access_token, refresh_token } = queryParams;
     if (!access_token) return;
-    console.log(access_token);
-    console.log(refresh_token);
+
+    // Check if the token is from Twitter and return early if so
+    const provider = queryParams.provider;
+    if (provider === 'twitter') {
+      console.log('Twitter access token detected, returning early from createSessionFromUrl.');
+      return;
+    }
+
+    await AsyncStorage.setItem('supabase_access_token', access_token);
+    await AsyncStorage.setItem('supabase_refresh_token', refresh_token);
 
     const { data, error } = await supabase.auth.setSession({
       access_token,
@@ -33,60 +47,137 @@ export default function LoginComponent() {
     return data.session;
   };
 
-  const signInWithProvider = async (provider) => {
+  const [request, response, promptAsync] = useAuthRequest(
+    {
+      clientId: 'aVdRcXNQMnJWbkFJS1lnXzNpWlQ6MTpjaQ',
+      clientSecret: '5M1k33ISwUo5Wl1rvJQAsc9bvTOyGppE1ZDXk1X-kSwu1lYK1U',
+      redirectUri,
+      scopes: ['tweet.read', 'tweet.write', 'users.read', 'offline.access'],
+      usePKCE: true,
+    },
+    discovery
+  );
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { code } = response.params;
+      handleTwitterOAuth(code);
+    }
+  }, [response]);
+
+  const clearAsyncStorage = async () => {
     try {
-      console.log('Initiating sign-in...');
-      console.log('Redirect URI:', redirectTo);
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: provider,
-        options: {
-          redirectTo,
-          skipBrowserRedirect: true,
-        },
-      });
-
-      if (error) {
-        console.error('Error during signInWithOAuth:', error);
-        throw error;
-      }
-
-      console.log('Received data from signInWithOAuth:', data);
-      console.log('Opening auth session with WebBrowser...');
-      const res = await WebBrowser.openAuthSessionAsync(
-        data?.url ?? "",
-        redirectTo
-      );
-
-      console.log('WebBrowser auth session result:', res);
-      if (res.type === "success") {
-        console.log('WebBrowser auth session successful');
-        const { url } = res;
-        console.log('Redirect URL:', url);
-        navigation.navigate('Overview')
-        console.log('Creating session from URL...');
-        await createSessionFromUrl(url);
-        console.log('Session created successfully');
-      } else {
-        console.log('WebBrowser auth session failed');
-        console.log('Result type:', res.type);
-        console.log('Result:', res);
-      }
-
-
+      await AsyncStorage.clear();
+      console.log('Async Storage cleared successfully');
+      Alert.alert('Success', 'Async Storage has been cleared.');
     } catch (error) {
-      console.error('An unexpected error occurred during sign-in:', error.message);
-      console.error('Error details:', error);
+      console.error('Error clearing Async Storage:', error);
+      Alert.alert('Error', 'Failed to clear Async Storage.');
+    }
+  };
+
+  const handleTwitterOAuth = async (code) => {
+    try {
+      const storedToken = await AsyncStorage.getItem('twitter_access_token');
+      if (storedToken) {
+        console.log('Token already stored', storedToken);
+        navigation.navigate('Overview');
+      }
+  
+      const basicAuth = base64.encode(`${request.clientId}:${request.clientSecret}`);
+  
+      const response = await axios.post(
+        'https://api.twitter.com/2/oauth2/token',
+        new URLSearchParams({
+          grant_type: 'authorization_code',
+          code,
+          redirect_uri: redirectUri,
+          client_id: request.clientId,
+          code_verifier: request.codeVerifier,
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': `Basic ${basicAuth}`
+          },
+        }
+      );
+  
+      const { access_token, refresh_token, scope } = response.data;
+      console.log('Twitter OAuth Response:', response.data);
+  
+      if (!scope.includes('tweet.write')) {
+        console.error('Missing required scope: tweet.write');
+        return;
+      }
+  
+      await AsyncStorage.setItem('twitter_access_token', access_token);
+      await AsyncStorage.setItem('twitter_refresh_token', refresh_token);
+  
+      console.log('Twitter session created successfully', { access_token, refresh_token });
+      navigation.navigate('Overview');
+    } catch (error) {
+      console.error('Error handling Twitter OAuth:', error);
+      console.error('Error details:', error.response ? error.response.data : error.message);
+    }
+  };  
+
+  const signInWithProvider = async (provider) => {
+    if (provider === 'twitter') {
+      promptAsync();
+    } else {
+      try {
+        console.log('Initiating sign-in...');
+        console.log('Redirect URI:', redirectUri);
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: provider,
+          options: {
+            redirectTo: redirectUri,
+            skipBrowserRedirect: true,
+          },
+        });
+
+        if (error) {
+          console.error('Error during signInWithOAuth:', error);
+          throw error;
+        }
+
+        console.log('Received data from signInWithOAuth:', data);
+        console.log('Opening auth session with WebBrowser...');
+        const res = await WebBrowser.openAuthSessionAsync(
+          data?.url ?? "",
+          redirectUri
+        );
+
+        console.log('WebBrowser auth session result:', res);
+        if (res.type === "success") {
+          console.log('WebBrowser auth session successful');
+          const { url } = res;
+          console.log('Redirect URL:', url);
+          console.log('Creating session from URL...');
+          await createSessionFromUrl(url);
+          console.log('Session created successfully');
+          navigation.navigate('Overview');
+        } else {
+          console.log('WebBrowser auth session failed');
+          console.log('Result type:', res.type);
+          console.log('Result:', res);
+        }
+      } catch (error) {
+        console.error('An unexpected error occurred during sign-in:', error.message);
+        console.error('Error details:', error);
+      }
     }
   };
 
   const handleSignIn = async () => {
     console.log('Attempting to sign in with:', { email, password });
-    
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    
+
     if (error) {
       console.error('Sign In Error:', error.message);
       Alert.alert(
@@ -101,7 +192,7 @@ export default function LoginComponent() {
       );
       navigation.navigate('Overview')
     }
-  };  
+  };
 
   const handleSignUp = async () => {
     navigation.navigate('Signup');
@@ -154,7 +245,7 @@ export default function LoginComponent() {
 
       <View style={styles.socialContainer}>
         <SocialButton iconName="google" backgroundColor="#DB4437" onPress={() => signInWithProvider('google')} />
-        <SocialButton iconName="facebook" backgroundColor="#3B5998" onPress={() => signInWithProvider('facebook')} />
+        <SocialButton iconName="discord" backgroundColor="#5865F2" onPress={() => signInWithProvider('discord')} />
         <SocialButton iconName="twitter" backgroundColor="#1DA1F2" onPress={() => signInWithProvider('twitter')} />
         <SocialButton iconName="github" backgroundColor="#333" onPress={() => signInWithProvider('github')} />
       </View>

@@ -11,9 +11,6 @@ const WorkspaceToolbar = ({ addTextbox, addImage, saveContent }) => {
       <TouchableOpacity style={styles.button} onPress={addImage}>
         <MaterialIcons name="add-photo-alternate" size={24} color="black" />
       </TouchableOpacity>
-      <TouchableOpacity style={styles.button} onPress={saveContent}>
-        <MaterialIcons name="save" size={24} color="black" />
-      </TouchableOpacity>
     </View>
   );
 };

@@ -1,7 +1,6 @@
 import 'expo-dev-client';
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import 'react-native-get-random-values';
 import RootNavigation from './src/navigation/RootNavigation';
 
 const App = () => {

@@ -1,11 +1,11 @@
 import React, { forwardRef, useImperativeHandle } from 'react';
-import { Dimensions, Image, StyleSheet, View } from 'react-native';
+import { Dimensions, Image, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const Imagebox = forwardRef(({ source, initialWidth, initialHeight, x, y }, ref) => {
+const Imagebox = forwardRef(({ source, initialWidth, initialHeight, x, y, mode }, ref) => {
   const posX = useSharedValue(x);
   const posY = useSharedValue(y);
   const boxWidth = useSharedValue(initialWidth);
@@ -51,6 +51,8 @@ const Imagebox = forwardRef(({ source, initialWidth, initialHeight, x, y }, ref)
       showPreview.value = false;
     });
 
+  const noOpGesture = Gesture.Tap();
+
   const createResizeGesture = (dx, dy) => {
     return Gesture.Pan()
       .onStart(() => {
@@ -78,6 +80,7 @@ const Imagebox = forwardRef(({ source, initialWidth, initialHeight, x, y }, ref)
       transform: [{ translateX: withTiming(posX.value) }, { translateY: withTiming(posY.value) }],
       width: withTiming(boxWidth.value),
       height: withTiming(boxHeight.value),
+      borderWidth: mode === 'view' ? 0 : 1,
     };
   });
 
@@ -93,41 +96,48 @@ const Imagebox = forwardRef(({ source, initialWidth, initialHeight, x, y }, ref)
     };
   });
 
+  console.log('Rendering Imagebox with URI:', source.uri);
+
   return (
     <View style={styles.container}>
-      <GestureDetector gesture={moveGesture}>
+      <GestureDetector gesture={mode !== 'view' ? moveGesture : noOpGesture}>
         <Animated.View style={[styles.imageContainer, animatedStyle]}>
-          <Image source={source} style={styles.image} resizeMode="stretch" />
-          <GestureDetector gesture={createResizeGesture(1, 0)}>
-            <Animated.View style={[styles.resizeHandle, styles.right]} />
-          </GestureDetector>
-          <GestureDetector gesture={createResizeGesture(0, 1)}>
-            <Animated.View style={[styles.resizeHandle, styles.bottom]} />
-          </GestureDetector>
-          <GestureDetector gesture={createResizeGesture(1, 1)}>
-            <Animated.View style={[styles.resizeHandle, styles.corner]} />
-          </GestureDetector>
-          <GestureDetector gesture={createResizeGesture(-1, 0)}>
-            <Animated.View style={[styles.resizeHandle, styles.left]} />
-          </GestureDetector>
-          <GestureDetector gesture={createResizeGesture(0, -1)}>
-            <Animated.View style={[styles.resizeHandle, styles.top]} />
-          </GestureDetector>
-          <GestureDetector gesture={createResizeGesture(-1, -1)}>
-            <Animated.View style={[styles.resizeHandle, styles.topLeft]} />
-          </GestureDetector>
-          <GestureDetector gesture={createResizeGesture(1, -1)}>
-            <Animated.View style={[styles.resizeHandle, styles.topRight]} />
-          </GestureDetector>
-          <GestureDetector gesture={createResizeGesture(-1, 1)}>
-            <Animated.View style={[styles.resizeHandle, styles.bottomLeft]} />
-          </GestureDetector>
-          <GestureDetector gesture={createResizeGesture(1, 1)}>
-            <Animated.View style={[styles.resizeHandle, styles.bottomRight]} />
-          </GestureDetector>
+          {source?.uri ? (
+            <Image source={{ uri: source.uri }} style={styles.image} resizeMode="stretch" />
+          ) : (
+            <View style={styles.placeholder}><Text>No Image</Text></View>
+          )}
+          {mode !== 'view' && (
+            <>
+              <GestureDetector gesture={createResizeGesture(1, 0)}>
+                <Animated.View style={[styles.resizeHandle, styles.right]} />
+              </GestureDetector>
+              <GestureDetector gesture={createResizeGesture(0, 1)}>
+                <Animated.View style={[styles.resizeHandle, styles.bottom]} />
+              </GestureDetector>
+              <GestureDetector gesture={createResizeGesture(1, 1)}>
+                <Animated.View style={[styles.resizeHandle, styles.corner]} />
+              </GestureDetector>
+              <GestureDetector gesture={createResizeGesture(-1, 0)}>
+                <Animated.View style={[styles.resizeHandle, styles.left]} />
+              </GestureDetector>
+              <GestureDetector gesture={createResizeGesture(0, -1)}>
+                <Animated.View style={[styles.resizeHandle, styles.top]} />
+              </GestureDetector>
+              <GestureDetector gesture={createResizeGesture(-1, -1)}>
+                <Animated.View style={[styles.resizeHandle, styles.topLeft]} />
+              </GestureDetector>
+              <GestureDetector gesture={createResizeGesture(1, -1)}>
+                <Animated.View style={[styles.resizeHandle, styles.topRight]} />
+              </GestureDetector>
+              <GestureDetector gesture={createResizeGesture(-1, 1)}>
+                <Animated.View style={[styles.resizeHandle, styles.bottomLeft]} />
+              </GestureDetector>
+            </>
+          )}
         </Animated.View>
       </GestureDetector>
-      <Animated.View style={[styles.previewBox, previewStyle]} pointerEvents="none" />
+      {mode !== 'view' && <Animated.View style={[styles.previewBox, previewStyle]} pointerEvents="none" />}
     </View>
   );
 });
@@ -141,7 +151,6 @@ const styles = StyleSheet.create({
   imageContainer: {
     position: 'absolute',
     borderColor: 'blue',
-    borderWidth: 1,
   },
   image: {
     width: '100%',
@@ -156,6 +165,13 @@ const styles = StyleSheet.create({
     height: 10,
     backgroundColor: 'blue',
     position: 'absolute',
+  },
+  placeholder: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#ccc',
   },
   right: {
     right: -5,

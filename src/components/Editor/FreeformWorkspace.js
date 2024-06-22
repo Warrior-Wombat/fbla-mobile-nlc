@@ -12,7 +12,6 @@ import WorkspaceToolbar from './WorkspaceToolbar';
 
 const FreeformWorkspace = forwardRef(({ route }, ref) => {
   const { pageId, mode, pageData } = route.params;
-  console.log('ROUTE PARAMS INSIDE FREEFORMWORKSPACE: ', route.params);
   const [components, setComponents] = useState([]);
   const [activeEditor, setActiveEditor] = useState(null);
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
@@ -72,16 +71,24 @@ const FreeformWorkspace = forwardRef(({ route }, ref) => {
   const addImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
+      allowsEditing: false, // Disable cropping
       quality: 1,
     });
-
-    if (!result.cancelled) {
+  
+    console.log('Image picker result:', result);
+  
+    if (!result.canceled) {
+      const { uri, width: imageWidth, height: imageHeight } = result.assets[0];
       const id = uuid.v4();
-      setComponents([...components, { id, type: 'image', uri: result.uri, ref: React.createRef(), x: 50, y: 50, width: 300, height: 300 }]);
+  
+      // Scale the image to fit on the screen, reducing its size by half
+      const scaledWidth = imageWidth / 8;
+      const scaledHeight = imageHeight / 8;
+  
+      console.log('Adding image with URI:', uri);
+      setComponents([...components, { id, type: 'image', uri: uri, ref: React.createRef(), x: 50, y: 50, width: scaledWidth, height: scaledHeight }]);
     }
-  };
+  };  
 
   const executeCommand = (command, value) => {
     console.log("Executing command:", command, "with value:", value, "on editor:", activeEditor);
@@ -150,6 +157,7 @@ const FreeformWorkspace = forwardRef(({ route }, ref) => {
           ...image,
           type: 'image',
           ref: React.createRef(),
+          uri: image.uri,
         })),
       ];
       setComponents(loadedComponents);
@@ -206,7 +214,7 @@ const FreeformWorkspace = forwardRef(({ route }, ref) => {
                 initialHeight={component.height}
                 x={component.x}
                 y={component.y}
-                mode={mode} // Pass mode prop here
+                mode={mode}
               />
             );
           }

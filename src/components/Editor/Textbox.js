@@ -7,6 +7,7 @@ import TinyMCEEditor from './TinyMCE/TinyMCEEditor';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const Textbox = forwardRef((props, ref) => {
+  const { mode } = props;
   const x = useSharedValue(props.x);
   const y = useSharedValue(props.y);
   const boxWidth = useSharedValue(props.width);
@@ -81,6 +82,8 @@ const Textbox = forwardRef((props, ref) => {
       runOnJS(handleMove)();
     });
 
+  const noOpGesture = Gesture.Tap();
+
   const createResizeGesture = (dx, dy, axis) => {
     return Gesture.Pan()
       .onStart(() => {
@@ -113,6 +116,7 @@ const Textbox = forwardRef((props, ref) => {
       transform: [{ translateX: withTiming(x.value) }, { translateY: withTiming(y.value) }],
       width: withTiming(boxWidth.value),
       height: withTiming(boxHeight.value),
+      borderWidth: mode === 'view' ? 0 : 1,
     };
   });
 
@@ -137,7 +141,7 @@ const Textbox = forwardRef((props, ref) => {
 
   return (
     <View style={styles.container}>
-      <GestureDetector gesture={moveGesture}>
+      <GestureDetector gesture={mode !== 'view' ? moveGesture : noOpGesture}>
         <Animated.View style={[styles.textbox, animatedStyle]}>
           <TinyMCEEditor 
             ref={editorRef}
@@ -148,34 +152,39 @@ const Textbox = forwardRef((props, ref) => {
             width={boxWidth.value}
             height={boxHeight.value}
             onReady={() => setEditorReady(true)} // Add this to handle when editor is ready
+            disabled={mode === 'view'} // Disable editor when in view mode
           />
-          <GestureDetector gesture={createResizeGesture(1, 0, 'horizontal')}>
-            <Animated.View style={[styles.resizeHandle, styles.right]} />
-          </GestureDetector>
-          <GestureDetector gesture={createResizeGesture(0, 1, 'vertical')}>
-            <Animated.View style={[styles.resizeHandle, styles.bottom]} />
-          </GestureDetector>
-          <GestureDetector gesture={createResizeGesture(1, 1, null)}>
-            <Animated.View style={[styles.resizeHandle, styles.corner]} />
-          </GestureDetector>
-          <GestureDetector gesture={createResizeGesture(-1, 0, 'horizontal')}>
-            <Animated.View style={[styles.resizeHandle, styles.left]} />
-          </GestureDetector>
-          <GestureDetector gesture={createResizeGesture(0, -1, 'vertical')}>
-            <Animated.View style={[styles.resizeHandle, styles.top]} />
-          </GestureDetector>
-          <GestureDetector gesture={createResizeGesture(-1, -1, null)}>
-            <Animated.View style={[styles.resizeHandle, styles.topLeft]} />
-          </GestureDetector>
-          <GestureDetector gesture={createResizeGesture(1, -1, null)}>
-            <Animated.View style={[styles.resizeHandle, styles.topRight]} />
-          </GestureDetector>
-          <GestureDetector gesture={createResizeGesture(-1, 1, null)}>
-            <Animated.View style={[styles.resizeHandle, styles.bottomLeft]} />
-          </GestureDetector>
+          {mode !== 'view' && (
+            <>
+              <GestureDetector gesture={createResizeGesture(1, 0, 'horizontal')}>
+                <Animated.View style={[styles.resizeHandle, styles.right]} />
+              </GestureDetector>
+              <GestureDetector gesture={createResizeGesture(0, 1, 'vertical')}>
+                <Animated.View style={[styles.resizeHandle, styles.bottom]} />
+              </GestureDetector>
+              <GestureDetector gesture={createResizeGesture(1, 1, null)}>
+                <Animated.View style={[styles.resizeHandle, styles.corner]} />
+              </GestureDetector>
+              <GestureDetector gesture={createResizeGesture(-1, 0, 'horizontal')}>
+                <Animated.View style={[styles.resizeHandle, styles.left]} />
+              </GestureDetector>
+              <GestureDetector gesture={createResizeGesture(0, -1, 'vertical')}>
+                <Animated.View style={[styles.resizeHandle, styles.top]} />
+              </GestureDetector>
+              <GestureDetector gesture={createResizeGesture(-1, -1, null)}>
+                <Animated.View style={[styles.resizeHandle, styles.topLeft]} />
+              </GestureDetector>
+              <GestureDetector gesture={createResizeGesture(1, -1, null)}>
+                <Animated.View style={[styles.resizeHandle, styles.topRight]} />
+              </GestureDetector>
+              <GestureDetector gesture={createResizeGesture(-1, 1, null)}>
+                <Animated.View style={[styles.resizeHandle, styles.bottomLeft]} />
+              </GestureDetector>
+            </>
+          )}
         </Animated.View>
       </GestureDetector>
-      <Animated.View style={[styles.previewBox, previewStyle]} pointerEvents="none" />
+      {mode !== 'view' && <Animated.View style={[styles.previewBox, previewStyle]} pointerEvents="none" />}
     </View>
   );
 });
@@ -189,7 +198,6 @@ const styles = StyleSheet.create({
   textbox: {
     backgroundColor: 'white',
     borderColor: 'blue',
-    borderWidth: 1,
     position: 'absolute',
   },
   previewBox: {

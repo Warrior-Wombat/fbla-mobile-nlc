@@ -4,11 +4,11 @@
     "slug": "fbla-mobile-nlc",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/portfolio.webp",
+    "icon": "./assets/icon.png",
     "scheme": "com.warriorwombat.fblamobilenlc",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/portfolio.webp",
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -30,7 +30,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/portfolio.webp",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.warriorwombat.fblamobilenlc",
@@ -67,9 +67,6 @@
     },
     "updates": {
       "url": "https://u.expo.dev/902d0adf-0730-4891-be53-51928175f811"
-    },
-    "plugins": [
-      "expo-router"
-    ]
+    }
   }
 }
