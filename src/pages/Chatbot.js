@@ -315,7 +315,7 @@ const ChatbotScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#FFF',
     paddingTop: 30,
   },
   headerContainer: {
@@ -380,6 +380,7 @@ const styles = StyleSheet.create({
   },
   aiTextBubble: {
     marginRight: 10,
+    marginTop: -10,
   },
   userTextBubble: {
     marginRight: 10,
@@ -408,11 +409,6 @@ const styles = StyleSheet.create({
     height: 50,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  backButton: {
-    position: 'absolute',
-    left: 10,
-    top: 10,
   },
 });
 

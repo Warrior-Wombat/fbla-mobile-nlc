@@ -7,6 +7,7 @@ import Signup from '../components/Login/Signup';
 import Catalogue from '../pages/Catalogue';
 import ChatbotScreen from '../pages/Chatbot';
 import PortfolioView from '../pages/PortfolioView';
+import SplashScreen from '../pages/SplashPage';
 
 enableScreens();
 const Stack = createStackNavigator();
@@ -14,7 +15,12 @@ const Stack = createStackNavigator();
 export default function RootNavigation() {
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="Login">
+      <Stack.Navigator initialRouteName="Splash">
+        <Stack.Screen 
+          name="Splash" 
+          component={SplashScreen} 
+          options={{ headerShown: false }} 
+        />
         <Stack.Screen 
           name="Login" 
           component={Login} 

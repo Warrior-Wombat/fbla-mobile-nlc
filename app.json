@@ -4,7 +4,7 @@
     "slug": "fbla-mobile-nlc",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/portfolio_logo_circle.png",
+    "icon": "./assets/icon.png",
     "scheme": "com.warriorwombat.fblamobilenlc",
     "userInterfaceStyle": "light",
     "splash": {
@@ -30,7 +30,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/portfolio_logo_circle.png",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.warriorwombat.fblamobilenlc",

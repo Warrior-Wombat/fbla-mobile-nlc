@@ -8,6 +8,7 @@ import * as WebBrowser from 'expo-web-browser';
 import React, { useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
+import BackButton from '../../navigation/BackButton';
 import { supabase } from "../../utils/supabase";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -212,6 +213,7 @@ export default function LoginComponent() {
 
   return (
     <View style={styles.container}>
+      <BackButton />
       <Text style={styles.loginText}>Login</Text>
       <Text style={styles.loginSubtext}>Please login to your account.</Text>
       

@@ -194,8 +194,8 @@ const Catalogue = () => {
   return (
     <MenuProvider>
       <View style={styles.container}>
+      <BackButton />
         <View style={styles.header}>
-          <BackButton />
           <Text style={styles.welcomeText}>Welcome!</Text>
         </View>
         <Text style={styles.subheaderText}>Tap a portfolio to get started.</Text>
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 60,
     width: '100%',
-    backgroundColor: '#f2f2f2',
+    backgroundColor: '#FFF',
   },
   header: {
     flexDirection: 'row',

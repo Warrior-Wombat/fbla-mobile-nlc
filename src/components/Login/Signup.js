@@ -1,6 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import BackButton from '../../navigation/BackButton';
 import { supabase } from "../../utils/supabase";
 
 export default function Signup() {
@@ -28,6 +29,7 @@ export default function Signup() {
 
   return (
     <View style={styles.container}>
+      <BackButton />
       <Text style={styles.signUpText}>Sign Up</Text>
       <Text style={styles.signUpSubtext}>Create a new account.</Text>
       

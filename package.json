@@ -70,7 +70,8 @@
     "react-native-view-shot": "3.8.0",
     "react-native-web": "~0.19.6",
     "react-native-webview": "^13.8.6",
-    "stream": "^0.0.2"
+    "stream": "^0.0.2",
+    "@expo/vector-icons": "^14.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"
