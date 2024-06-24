@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { HeaderBackButton } from '@react-navigation/elements';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import {
@@ -15,6 +14,7 @@ import {
 } from 'react-native';
 import { Menu, MenuOption, MenuOptions, MenuProvider, MenuTrigger } from 'react-native-popup-menu';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import BackButton from '../navigation/BackButton';
 import { supabase } from '../utils/supabase';
 
 const Catalogue = () => {
@@ -33,9 +33,6 @@ const Catalogue = () => {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerTitle: 'Overview',
-      headerLeft: () => (
-        <HeaderBackButton onPress={() => navigation.goBack()} />
-      ),
       headerStyle: {
         backgroundColor: '#f9f9f9',
       },
@@ -55,36 +52,44 @@ const Catalogue = () => {
       .from('portfolios')
       .select('id, components->>title, created_at')
       .order('created_at', { ascending: false });
-  
+
     if (error) {
       console.error('Error fetching portfolios:', error);
       Alert.alert('Error', 'Failed to fetch portfolios');
       return;
     }
-  
+
     const formattedPortfolios = data.map(portfolio => ({
       portfolio_id: portfolio.id,
       title: portfolio.title,
       image: require('../../assets/portfolio.webp'),
     }));
-  
+
     formattedPortfolios.push({
       portfolio_id: 'new',
       title: 'Add New Portfolio',
       image: require('../../assets/plus_icon.png'),
     });
-  
+
+    formattedPortfolios.push({
+      portfolio_id: 'ai',
+      title: 'Create with AI',
+      image: 'sparkles',
+    });
+
     setPortfolios(formattedPortfolios);
-  };  
+  };
 
   const handlePressPortfolio = async (index) => {
-    if (portfolios[index].portfolio_id === 'new') {
+    if (index === portfolios.length - 1) {
+      navigation.navigate('Chatbot');
+    } else if (portfolios[index].portfolio_id === 'new') {
       navigation.navigate('Portfolio', { mode: 'create' });
     } else {
       try {
         const selectedPortfolio = portfolios[index];
         const { data, error } = await supabase.from('portfolios').select('*').eq('id', selectedPortfolio.portfolio_id).single();
-        
+
         if (error) {
           console.error('Error fetching portfolio:', error);
           Alert.alert('Error', 'Failed to load portfolio');
@@ -103,46 +108,43 @@ const Catalogue = () => {
 
   const handleEditTitle = async () => {
     if (!selectedPortfolio) return;
-  
+
     try {
-      // Fetch the current portfolio data
       const { data: currentPortfolio, error: fetchError } = await supabase
         .from('portfolios')
         .select('components')
         .eq('id', selectedPortfolio.portfolio_id)
         .single();
-  
+
       if (fetchError) {
         console.error('Error fetching current portfolio:', fetchError);
         Alert.alert('Error', 'Failed to fetch current portfolio data');
         return;
       }
-  
-      // Update the title within the components object
+
       const updatedComponents = {
         ...currentPortfolio.components,
-        title: newTitle
+        title: newTitle,
       };
-  
-      // Save the updated portfolio back to the database
+
       const { error: updateError } = await supabase
         .from('portfolios')
         .update({ components: updatedComponents })
         .eq('id', selectedPortfolio.portfolio_id);
-  
+
       if (updateError) {
         console.error('Error updating portfolio title:', updateError);
         Alert.alert('Error', 'Failed to update title');
         return;
       }
-  
+
       setModalVisible(false);
       fetchPortfolios();
     } catch (error) {
       console.error('Error handling edit title:', error);
       Alert.alert('Error', 'An unexpected error occurred');
     }
-  };   
+  };
 
   const handleDeletePortfolio = async (portfolio_id) => {
     const { data, error } = await supabase
@@ -164,23 +166,27 @@ const Catalogue = () => {
       <TouchableOpacity
         style={styles.portfolioItem}
         onPress={() => handlePressPortfolio(index)}>
-        <Image source={item.image} style={styles.image} />
+        {index === portfolios.length - 1 ? (
+          <MaterialIcons name="auto-awesome" size={50} color="#000" style={styles.icon} />
+        ) : (
+          <Image source={item.image} style={styles.image} />
+        )}
         <Text style={styles.portfolioText}>{item.title}</Text>
       </TouchableOpacity>
-      {item.portfolio_id !== 'new' && (
-      <Menu>
-        <MenuTrigger>
-          <MaterialIcons name="more-vert" size={30} color="#333" />
-        </MenuTrigger>
-        <MenuOptions customStyles={styles}>
-          <MenuOption onSelect={() => { setSelectedPortfolio(item); setNewTitle(item.title); setModalVisible(true); }}>
-            <Text style={styles.optionText}>Edit Title</Text>
-          </MenuOption>
-          <MenuOption onSelect={() => handleDeletePortfolio(item.portfolio_id)}>
-            <Text style={[styles.optionText, { color: 'red' }]}>Delete Portfolio</Text>
-          </MenuOption>
-        </MenuOptions>
-      </Menu>
+      {index !== portfolios.length - 1 && item.portfolio_id !== 'new' && (
+        <Menu>
+          <MenuTrigger>
+            <MaterialIcons name="more-vert" size={30} color="#333" />
+          </MenuTrigger>
+          <MenuOptions customStyles={styles}>
+            <MenuOption onSelect={() => { setSelectedPortfolio(item); setNewTitle(item.title); setModalVisible(true); }}>
+              <Text style={styles.optionText}>Edit Title</Text>
+            </MenuOption>
+            <MenuOption onSelect={() => handleDeletePortfolio(item.portfolio_id)}>
+              <Text style={[styles.optionText, { color: 'red' }]}>Delete Portfolio</Text>
+            </MenuOption>
+          </MenuOptions>
+        </Menu>
       )}
     </View>
   );
@@ -188,7 +194,10 @@ const Catalogue = () => {
   return (
     <MenuProvider>
       <View style={styles.container}>
-        <Text style={styles.welcomeText}>Welcome!</Text>
+        <View style={styles.header}>
+          <BackButton />
+          <Text style={styles.welcomeText}>Welcome!</Text>
+        </View>
         <Text style={styles.subheaderText}>Tap a portfolio to get started.</Text>
         <FlatList
           data={portfolios}
@@ -231,12 +240,17 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: '#f2f2f2',
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
   welcomeText: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 8,
     color: '#333',
-    alignSelf: 'center',
+    marginLeft: 10,
   },
   subheaderText: {
     fontSize: 18,
@@ -277,6 +291,9 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     marginRight: 16,
   },
+  icon: {
+    marginRight: 16,
+  },
   portfolioText: {
     fontSize: 18,
     color: '#333',
@@ -286,7 +303,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContainer: {
     width: '80%',

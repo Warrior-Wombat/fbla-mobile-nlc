@@ -60,7 +60,10 @@ const PortfolioNavigator = forwardRef((props, ref) => {
 
       await Share.open(shareOptions);
     } catch (error) {
-      console.error('Error sharing portfolio:', error);
+      if (error.message != 'User did not share')
+      {
+        console.error('Error sharing portfolio:', error.message);
+      }
     }
   };
 

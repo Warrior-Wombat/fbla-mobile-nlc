@@ -26,6 +26,7 @@
     "dotenv": "^16.4.5",
     "events": "^3.3.0",
     "expo": "~50.0.14",
+    "expo-app-loading": "^2.1.1",
     "expo-auth-session": "~5.4.0",
     "expo-constants": "~15.4.6",
     "expo-crypto": "~12.8.1",

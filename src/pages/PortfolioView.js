@@ -131,7 +131,6 @@ const PortfolioView = ({ route }) => {
       }
     }
 
-    // Upload images and update URLs
     for (let page of finalPages) {
       for (let image of page.workspace.images) {
         const { uri } = image;
@@ -156,13 +155,8 @@ const PortfolioView = ({ route }) => {
       }
     }
 
-    const portfolio = {
-      id: portfolioId,
-      title: portfolioTitle,
-      pages: finalPages,
-    };
+    console.log('looped thru pages and pushed portfolio');
 
-    // Save to Supabase
     const { data, error } = await supabase.from('portfolios').insert([{
       id: portfolioId,
       components: {

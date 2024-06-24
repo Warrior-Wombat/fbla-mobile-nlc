@@ -1,14 +1,17 @@
 import { TINYMCE_API_KEY } from '@env';
+import { randomUUID } from 'expo-crypto';
 import * as ImagePicker from 'expo-image-picker';
-import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
-import { Animated, Easing, Keyboard, Platform, StyleSheet, View } from 'react-native';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { Dimensions, Keyboard, ScrollView, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import uuid from 'react-native-uuid';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import Imagebox from './Imagebox';
 import Textbox from './Textbox';
 import BottomToolbar from './TinyMCE/BottomToolbar';
 import TopToolbar from './TinyMCE/TopToolbar';
 import WorkspaceToolbar from './WorkspaceToolbar';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const FreeformWorkspace = forwardRef(({ route }, ref) => {
   const { pageId, mode, pageData } = route.params;
@@ -16,7 +19,11 @@ const FreeformWorkspace = forwardRef(({ route }, ref) => {
   const [activeEditor, setActiveEditor] = useState(null);
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const slideAnim = useState(new Animated.Value(-60))[0];
+  const slideAnim = useSharedValue(-60);
+
+  const workspaceHeight = useSharedValue(SCREEN_HEIGHT);
+  const workspaceWidth = useSharedValue(SCREEN_WIDTH * 2);
+  const scrollViewRef = useRef(null);
 
   useEffect(() => {
     const showSubscription = Keyboard.addListener('keyboardDidShow', (e) => {
@@ -30,7 +37,6 @@ const FreeformWorkspace = forwardRef(({ route }, ref) => {
       setActiveEditor(null);
     });
 
-    console.log("Page Data:", pageData);
     if (mode === 'edit' || mode === 'view') {
       loadPageData(pageData);
     }
@@ -42,56 +48,65 @@ const FreeformWorkspace = forwardRef(({ route }, ref) => {
   }, [pageId, mode, pageData]);
 
   useEffect(() => {
-    Animated.timing(slideAnim, {
-      toValue: isKeyboardVisible ? 0 : -60,
-      duration: 300,
-      easing: Easing.out(Easing.ease),
-      useNativeDriver: true,
-    }).start();
-  }, [isKeyboardVisible]);
+    slideAnim.value = withTiming(isKeyboardVisible ? 0 : -60, { duration: 300 });
+  }, [isKeyboardVisible, slideAnim]);
 
-  useEffect(() => {
-    (async () => {
-      if (Platform.OS !== 'web') {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') {
-          alert('Sorry, we need camera roll permissions to make this work!');
-        }
+  const addTextbox = useCallback(() => {
+    const id = randomUUID();
+    const editorId = `${id}`;
+    const visibleCenterX = SCREEN_WIDTH / 2;
+    const visibleCenterY = SCREEN_HEIGHT / 2;
+
+    setComponents((prevComponents) => [
+      ...prevComponents,
+      { 
+        id, 
+        type: 'textbox', 
+        editorId, 
+        ref: React.createRef(), 
+        x: visibleCenterX - 150, // Center horizontally
+        y: visibleCenterY - 200, // Center vertically
+        width: 300, 
+        height: 400, 
+        content: '' 
       }
-    })();
+    ]);
   }, []);
 
-  const addTextbox = () => {
-    const id = uuid.v4();
-    const editorId = `${id}`;
-    console.log(`Creating textbox with editorId: ${editorId}`);
-    setComponents([...components, { id, type: 'textbox', editorId, ref: React.createRef(), x: 50, y: 50, width: 300, height: 400, content: '' }]);
-  };
-
-  const addImage = async () => {
+  const addImage = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: false, // Disable cropping
+      allowsEditing: false,
       quality: 1,
     });
-  
-    console.log('Image picker result:', result);
-  
+
     if (!result.canceled) {
       const { uri, width: imageWidth, height: imageHeight } = result.assets[0];
-      const id = uuid.v4();
-  
-      // Scale the image to fit on the screen, reducing its size by half
+      const id = randomUUID();
+
       const scaledWidth = imageWidth / 8;
       const scaledHeight = imageHeight / 8;
-  
-      console.log('Adding image with URI:', uri);
-      setComponents([...components, { id, type: 'image', uri: uri, ref: React.createRef(), x: 50, y: 50, width: scaledWidth, height: scaledHeight }]);
+
+      const visibleCenterX = SCREEN_WIDTH / 2;
+      const visibleCenterY = SCREEN_HEIGHT / 2;
+
+      setComponents((prevComponents) => [
+        ...prevComponents,
+        { 
+          id, 
+          type: 'image', 
+          uri: uri, 
+          ref: React.createRef(), 
+          x: visibleCenterX - scaledWidth / 2, // Center horizontally
+          y: visibleCenterY - scaledHeight / 2, // Center vertically
+          width: scaledWidth, 
+          height: scaledHeight 
+        }
+      ]);
     }
-  };  
+  }, []);
 
   const executeCommand = (command, value) => {
-    console.log("Executing command:", command, "with value:", value, "on editor:", activeEditor);
     if (activeEditor && activeEditor.current) {
       activeEditor.current.executeCommand(command, value);
     }
@@ -105,7 +120,7 @@ const FreeformWorkspace = forwardRef(({ route }, ref) => {
     try {
       const textboxes = [];
       const images = [];
-  
+
       await Promise.all(
         components.map(async (component) => {
           if (component.type === 'textbox') {
@@ -132,7 +147,7 @@ const FreeformWorkspace = forwardRef(({ route }, ref) => {
           }
         })
       );
-  
+
       return {
         textboxes: textboxes.length ? textboxes : [],
         images: images.length ? images : [],
@@ -144,7 +159,6 @@ const FreeformWorkspace = forwardRef(({ route }, ref) => {
 
   const loadPageData = (pageData) => {
     if (pageData) {
-      console.log("Loading page data:", pageData);
       const loadedComponents = [
         ...pageData.textboxes.map(textbox => ({
           ...textbox,
@@ -161,21 +175,17 @@ const FreeformWorkspace = forwardRef(({ route }, ref) => {
         })),
       ];
       setComponents(loadedComponents);
-
-      // Set content for each component
-      loadedComponents.forEach(component => {
-        if (component.type === 'textbox' && component.ref.current) {
-          component.ref.current.setContent(component.content);
-        }
-      });
-    } else {
-      console.log("No page data to load.");
     }
   };
 
   useImperativeHandle(ref, () => ({
     collectPageData,
     loadPageData,
+  }));
+
+  const workspaceStyle = useAnimatedStyle(() => ({
+    width: workspaceWidth.value,
+    height: workspaceHeight.value,
   }));
 
   return (
@@ -185,42 +195,55 @@ const FreeformWorkspace = forwardRef(({ route }, ref) => {
           <TopToolbar executeCommand={executeCommand} editorRef={activeEditor} />
         </Animated.View>
       )}
-      <View style={styles.workspace}>
-        {components.map((component) => {
-          if (component.type === 'textbox') {
-            return (
-              <Textbox
-                key={component.id}
-                ref={component.ref}
-                apiKey={TINYMCE_API_KEY}
-                editorId={component.editorId}
-                setActiveEditor={setActiveEditorRef}
-                editable={mode !== 'view'}
-                x={component.x}
-                y={component.y}
-                width={component.width}
-                height={component.height}
-                content={component.content}
-                mode={mode} // Pass mode prop here
-              />
-            );
-          } else if (component.type === 'image') {
-            return (
-              <Imagebox
-                key={component.id}
-                ref={component.ref}
-                source={{ uri: component.uri }}
-                initialWidth={component.width}
-                initialHeight={component.height}
-                x={component.x}
-                y={component.y}
-                mode={mode}
-              />
-            );
-          }
-          return null;
-        })}
-      </View>
+      <ScrollView 
+        ref={scrollViewRef}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
+        horizontal={true}
+        showsHorizontalScrollIndicator={true}
+      >
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1 }}
+          showsVerticalScrollIndicator={true}
+        >
+          <Animated.View style={[styles.workspace, workspaceStyle]}>
+            {components.map((component) => {
+              if (component.type === 'textbox') {
+                return (
+                  <Textbox
+                    key={component.id}
+                    ref={component.ref}
+                    apiKey={TINYMCE_API_KEY}
+                    editorId={component.editorId}
+                    setActiveEditor={setActiveEditorRef}
+                    editable={mode !== 'view'}
+                    x={component.x}
+                    y={component.y}
+                    width={component.width}
+                    height={component.height}
+                    content={component.content}
+                    mode={mode}
+                  />
+                );
+              } else if (component.type === 'image') {
+                return (
+                  <Imagebox
+                    key={component.id}
+                    ref={component.ref}
+                    source={{ uri: component.uri }}
+                    initialWidth={component.width}
+                    initialHeight={component.height}
+                    x={component.x}
+                    y={component.y}
+                    mode={mode}
+                  />
+                );
+              }
+              return null;
+            })}
+          </Animated.View>
+        </ScrollView>
+      </ScrollView>
       {mode !== 'view' && (
         isKeyboardVisible ? (
           <BottomToolbar executeCommand={executeCommand} editorRef={activeEditor} />
@@ -236,8 +259,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  workspace: {
+  scrollView: {
     flex: 1,
+  },
+  scrollViewContent: {
+    flexGrow: 1,
+  },
+  workspace: {
+    position: 'relative',
   },
   topToolbarContainer: {
     position: 'absolute',

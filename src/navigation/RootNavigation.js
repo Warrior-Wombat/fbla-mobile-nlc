@@ -5,6 +5,7 @@ import { enableScreens } from 'react-native-screens';
 import Login from '../components/Login/Login';
 import Signup from '../components/Login/Signup';
 import Catalogue from '../pages/Catalogue';
+import ChatbotScreen from '../pages/Chatbot';
 import PortfolioView from '../pages/PortfolioView';
 
 enableScreens();
@@ -32,6 +33,11 @@ export default function RootNavigation() {
         <Stack.Screen 
           name="Portfolio" 
           component={PortfolioView} 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="Chatbot" 
+          component={ChatbotScreen} 
           options={{ headerShown: false }} 
         />
       </Stack.Navigator>
