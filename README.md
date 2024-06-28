@@ -2,7 +2,7 @@
 
 <br />
 <div align="center">
-  <a href="https://github.com/Warrior-Wombat/fbla_mobile_nlc">
+  <a href="https://github.com/Warrior-Wombat/fbla-mobile-nlc">
     <img src="./assets/portfolio_logo_circle.png" alt="Logo" width="80" height="80">
   </a>
 
@@ -11,12 +11,12 @@
   <p align="center">
     Create anything you want.
     <br />
-    <a href="https://github.com/Warrior-Wombat/fbla_mobile_nlc"><strong>Explore the docs »</strong></a>
+    <a href="https://github.com/Warrior-Wombat/fbla-mobile-nlc"><strong>Explore the docs »</strong></a>
     <br />
     <br />
-    <a href="https://github.com/Warrior-Wombat/fbla_mobile_nlc/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
+    <a href="https://github.com/Warrior-Wombat/fbla-mobile-nlc/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
     ·
-    <a href="https://github.com/Warrior-Wombat/fbla_mobile_nlc/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
+    <a href="https://github.com/Warrior-Wombat/fbla-mobile-nlc/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
   </p>
 </div>
 
@@ -44,7 +44,7 @@ To get a local copy up and running follow these simple example steps.
 ### Installation
 1. Clone the repo
    ```sh
-   git clone https://github.com/Warrior-Wombat/fbla_mobile_nlc.git
+   git clone https://github.com/Warrior-Wombat/fbla-mobile-nlc.git
    ```
 2. Install Expo packages
    ```sh
