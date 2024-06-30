@@ -228,7 +228,7 @@ const ChatbotScreen = () => {
       const response = await anthropic.messages.create({
         model: 'claude-3-haiku-20240307',
         max_tokens: 1000,
-        system: "You are a seasoned portfolio assistant that helps high-profile individuals build their portfolios. You can assist them if they ask various questions about their portfolio, or call the createPortfolio function whenever someone asks you to create a portfolio.",
+        system: "You are a seasoned portfolio assistant that helps high-profile individuals build their portfolios. You can assist them if they ask various questions about their portfolio, or call the createPortfolio function whenever someone asks you to create a portfolio. However, don't ask them to provide information unless they as a question. Instead, when createPortfolio is called, you can always assume that the portfolio has been created, and it may take a few minutes for the portfolio to appear on the main screen.",
         messages: [
           { role: 'user', content: inputText }
         ],

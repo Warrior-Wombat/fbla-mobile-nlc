@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -23,85 +23,75 @@ const Catalogue = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedPortfolio, setSelectedPortfolio] = useState(null);
   const [newTitle, setNewTitle] = useState('');
+  const [tooltipStep, setTooltipStep] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
       fetchPortfolios();
-    }, [])
+      navigation.setOptions({
+        headerTitle: 'Overview',
+        headerStyle: { backgroundColor: '#f9f9f9' },
+        headerTintColor: '#333',
+        headerTitleStyle: { fontWeight: 'bold' },
+      });
+    }, [navigation])
   );
 
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerTitle: 'Overview',
-      headerStyle: {
-        backgroundColor: '#f9f9f9',
-      },
-      headerTintColor: '#333',
-      headerTitleStyle: {
-        fontWeight: 'bold',
-      },
-    });
-  }, [navigation]);
-
-  useEffect(() => {
-    fetchPortfolios();
-  }, []);
-
   const fetchPortfolios = async () => {
-    const { data, error } = await supabase
-      .from('portfolios')
-      .select('id, components->>title, created_at')
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('portfolios')
+        .select('id, components->>title, created_at')
+        .order('created_at', { ascending: false });
 
-    if (error) {
+      if (error) throw error;
+
+      const formattedPortfolios = data.map(portfolio => ({
+        portfolio_id: portfolio.id,
+        title: portfolio.title,
+        image: require('../../assets/portfolio.webp'),
+      }));
+
+      formattedPortfolios.push(
+        {
+          portfolio_id: 'new',
+          title: 'Add New Portfolio',
+          image: require('../../assets/plus_icon.png'),
+        },
+        {
+          portfolio_id: 'ai',
+          title: 'Create with AI',
+          image: 'sparkles',
+        }
+      );
+
+      setPortfolios(formattedPortfolios);
+    } catch (error) {
       console.error('Error fetching portfolios:', error);
       Alert.alert('Error', 'Failed to fetch portfolios');
-      return;
     }
-
-    const formattedPortfolios = data.map(portfolio => ({
-      portfolio_id: portfolio.id,
-      title: portfolio.title,
-      image: require('../../assets/portfolio.webp'),
-    }));
-
-    formattedPortfolios.push({
-      portfolio_id: 'new',
-      title: 'Add New Portfolio',
-      image: require('../../assets/plus_icon.png'),
-    });
-
-    formattedPortfolios.push({
-      portfolio_id: 'ai',
-      title: 'Create with AI',
-      image: 'sparkles',
-    });
-
-    setPortfolios(formattedPortfolios);
   };
 
-  const handlePressPortfolio = async (index) => {
-    if (index === portfolios.length - 1) {
+  const handlePressPortfolio = async (portfolio) => {
+    if (portfolio.portfolio_id === 'ai') {
       navigation.navigate('Chatbot');
-    } else if (portfolios[index].portfolio_id === 'new') {
+    } else if (portfolio.portfolio_id === 'new') {
       navigation.navigate('Portfolio', { mode: 'create' });
     } else {
       try {
-        const selectedPortfolio = portfolios[index];
-        const { data, error } = await supabase.from('portfolios').select('*').eq('id', selectedPortfolio.portfolio_id).single();
+        const { data, error } = await supabase
+          .from('portfolios')
+          .select('*')
+          .eq('id', portfolio.portfolio_id)
+          .single();
 
-        if (error) {
-          console.error('Error fetching portfolio:', error);
-          Alert.alert('Error', 'Failed to load portfolio');
-          return;
-        }
+        if (error) throw error;
 
         await AsyncStorage.setItem('currentPortfolio', JSON.stringify(data));
-        console.log("Navigating to Portfolio screen with data:", JSON.stringify(data));
         navigation.navigate('Portfolio', { mode: 'view', portfolioData: data.components });
       } catch (error) {
-        console.error('Error setting portfolio data:', error);
-        Alert.alert('Error', 'Failed to navigate to portfolio');
+        console.error('Error loading portfolio:', error);
+        Alert.alert('Error', 'Failed to load portfolio');
       }
     }
   };
@@ -116,11 +106,7 @@ const Catalogue = () => {
         .eq('id', selectedPortfolio.portfolio_id)
         .single();
 
-      if (fetchError) {
-        console.error('Error fetching current portfolio:', fetchError);
-        Alert.alert('Error', 'Failed to fetch current portfolio data');
-        return;
-      }
+      if (fetchError) throw fetchError;
 
       const updatedComponents = {
         ...currentPortfolio.components,
@@ -132,69 +118,101 @@ const Catalogue = () => {
         .update({ components: updatedComponents })
         .eq('id', selectedPortfolio.portfolio_id);
 
-      if (updateError) {
-        console.error('Error updating portfolio title:', updateError);
-        Alert.alert('Error', 'Failed to update title');
-        return;
-      }
+      if (updateError) throw updateError;
 
       setModalVisible(false);
       fetchPortfolios();
     } catch (error) {
-      console.error('Error handling edit title:', error);
-      Alert.alert('Error', 'An unexpected error occurred');
+      console.error('Error updating portfolio title:', error);
+      Alert.alert('Error', 'Failed to update title');
     }
   };
 
   const handleDeletePortfolio = async (portfolio_id) => {
-    const { data, error } = await supabase
-      .from('portfolios')
-      .delete()
-      .eq('id', portfolio_id);
+    try {
+      const { error } = await supabase
+        .from('portfolios')
+        .delete()
+        .eq('id', portfolio_id);
 
-    if (error) {
+      if (error) throw error;
+
+      fetchPortfolios();
+    } catch (error) {
       console.error('Error deleting portfolio:', error);
       Alert.alert('Error', 'Failed to delete portfolio');
-      return;
     }
-
-    fetchPortfolios();
   };
 
-  const renderPortfolioItem = ({ item, index }) => (
-    <View style={styles.portfolioItemContainer}>
-      <TouchableOpacity
-        style={styles.portfolioItem}
-        onPress={() => handlePressPortfolio(index)}>
-        {index === portfolios.length - 1 ? (
-          <MaterialIcons name="auto-awesome" size={50} color="#000" style={styles.icon} />
-        ) : (
-          <Image source={item.image} style={styles.image} />
-        )}
-        <Text style={styles.portfolioText}>{item.title}</Text>
-      </TouchableOpacity>
-      {index !== portfolios.length - 1 && item.portfolio_id !== 'new' && (
-        <Menu>
-          <MenuTrigger>
-            <MaterialIcons name="more-vert" size={30} color="#333" />
-          </MenuTrigger>
-          <MenuOptions customStyles={styles}>
-            <MenuOption onSelect={() => { setSelectedPortfolio(item); setNewTitle(item.title); setModalVisible(true); }}>
-              <Text style={styles.optionText}>Edit Title</Text>
-            </MenuOption>
-            <MenuOption onSelect={() => handleDeletePortfolio(item.portfolio_id)}>
-              <Text style={[styles.optionText, { color: 'red' }]}>Delete Portfolio</Text>
-            </MenuOption>
-          </MenuOptions>
-        </Menu>
-      )}
+  const renderTooltip = (content) => (
+    <View style={[styles.tooltipContainer, { zIndex: 10 }]}>
+      <View style={styles.tooltip}>
+        <Text style={styles.tooltipText}>{content}</Text>
+      </View>
+      <View style={styles.tooltipArrow} />
     </View>
-  );
+  );  
+
+  const renderPortfolioItem = ({ item, index }) => {
+    const isNewPortfolioButton = item.portfolio_id === 'new';
+    const isAIButton = item.portfolio_id === 'ai';
+    const isFirstPortfolio = index === 0 && !isNewPortfolioButton && !isAIButton;
+
+    const showTooltip = 
+      (isNewPortfolioButton && tooltipStep === 0) ||
+      (isFirstPortfolio && tooltipStep === 1) ||
+      (isAIButton && tooltipStep === 2);
+
+    const tooltipContent = 
+      isNewPortfolioButton
+        ? 'Tap here to add a new portfolio from scratch.'
+        : isFirstPortfolio
+        ? 'This is your first portfolio. Tap to view or edit.'
+        : 'Create a new portfolio with AI assistance.';
+
+    return (
+      <View style={styles.itemContainer}>
+        <TouchableOpacity
+          style={styles.portfolioItem}
+          onPress={() => {
+            if (showTooltip) {
+              setTooltipStep(prevStep => prevStep + 1);
+            } else {
+              handlePressPortfolio(item);
+            }
+          }}
+        >
+          {isAIButton ? (
+            <MaterialIcons name="auto-awesome" size={50} color="#000" style={styles.icon} />
+          ) : (
+            <Image source={item.image} style={styles.image} />
+          )}
+          <Text style={styles.portfolioText}>{item.title}</Text>
+          {!isNewPortfolioButton && !isAIButton && (
+            <Menu>
+              <MenuTrigger>
+                <MaterialIcons name="more-vert" size={30} color="#333" />
+              </MenuTrigger>
+              <MenuOptions customStyles={optionsStyles}>
+                <MenuOption onSelect={() => { setSelectedPortfolio(item); setNewTitle(item.title); setModalVisible(true); }}>
+                  <Text style={styles.optionText}>Edit Title</Text>
+                </MenuOption>
+                <MenuOption onSelect={() => handleDeletePortfolio(item.portfolio_id)}>
+                  <Text style={[styles.optionText, { color: 'red' }]}>Delete Portfolio</Text>
+                </MenuOption>
+              </MenuOptions>
+            </Menu>
+          )}
+        </TouchableOpacity>
+        {showTooltip && renderTooltip(tooltipContent)}
+      </View>
+    );
+  };
 
   return (
     <MenuProvider>
       <View style={styles.container}>
-      <BackButton />
+        <BackButton />
         <View style={styles.header}>
           <Text style={styles.welcomeText}>Welcome!</Text>
         </View>
@@ -208,7 +226,9 @@ const Catalogue = () => {
         <Modal
           visible={modalVisible}
           animationType="slide"
-          onRequestClose={() => setModalVisible(false)}>
+          transparent={true}
+          onRequestClose={() => setModalVisible(false)}
+        >
           <View style={styles.modalBackdrop}>
             <View style={styles.modalContainer}>
               <Text style={styles.modalTitle}>Edit Portfolio Title</Text>
@@ -237,7 +257,6 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     paddingTop: 60,
-    width: '100%',
     backgroundColor: '#FFF',
   },
   header: {
@@ -261,29 +280,22 @@ const styles = StyleSheet.create({
   flatListContent: {
     paddingVertical: 10,
   },
-  portfolioItemContainer: {
+  itemContainer: {
+    marginBottom: 20,
+  },
+  portfolioItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 10,
     paddingHorizontal: 10,
-    width: '100%',
-    marginBottom: 10,
     backgroundColor: '#fff',
     borderRadius: 10,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-  },
-  portfolioItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
   },
   image: {
     width: 50,
@@ -298,6 +310,37 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#333',
     fontWeight: '500',
+    flex: 1,
+  },
+  tooltipContainer: {
+    position: 'absolute',
+    bottom: -45,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 10,
+  },  
+  tooltip: {
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    padding: 10,
+    borderRadius: 5,
+  },
+  tooltipText: {
+    color: 'white',
+    textAlign: 'center',
+  },
+  tooltipArrow: {
+    width: 0,
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderLeftWidth: 10,
+    borderRightWidth: 10,
+    borderBottomWidth: 10,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: 'rgba(0, 0, 0, 0.7)',
+    alignSelf: 'center',
   },
   modalBackdrop: {
     flex: 1,
@@ -311,10 +354,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 10,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
@@ -349,12 +389,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  optionsContainer: {
-    padding: 10,
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    elevation: 5,
-  },
   optionText: {
     fontSize: 18,
     fontWeight: 'bold',
@@ -362,5 +396,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
   },
 });
+
+const optionsStyles = {
+  optionsContainer: {
+    padding: 10,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    elevation: 5,
+  },
+};
 
 export default Catalogue;
